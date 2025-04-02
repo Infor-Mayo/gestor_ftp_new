@@ -1,0 +1,9 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource>
+        <file>translations/gestor_es.ts</file>
+        <file>translations/gestor_en.ts</file>
+        <file>translations/gestor_es.qm</file>
+        <file>translations/gestor_en.qm</file>
+    </qresource>
+</RCC>

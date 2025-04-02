@@ -1,15 +1,20 @@
 #include "gestor.h"
-#include "./ui_gestor.h"
+#include "ui_gestor.h"
 #include <QMessageBox>
-#include <QNetworkInterface>
+#include <QFileDialog>
+#include <QDir>
+#include <QTextStream>
+#include <QDateTime>
 #include <QHostAddress>
+#include <QNetworkInterface>
+#include <QApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QFileDialog>
 #include <QScrollBar>
 #include <QCloseEvent>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QTranslator>
 
 gestor::gestor(QWidget *parent)
     : QMainWindow(parent)
@@ -27,8 +32,21 @@ gestor::gestor(QWidget *parent)
     , quitAction(nullptr)
     , trayIconMenu(nullptr)
     , trayIcon(nullptr)
+    , translator(nullptr)
 {
     ui->setupUi(this);
+    
+    // Cargar traducciones
+    loadTranslations();
+    
+    // Conectar acciones del menú de idiomas
+    connect(ui->actionEspanol, &QAction::triggered, this, [this]() {
+        changeLanguage("es");
+    });
+    
+    connect(ui->actionIngles, &QAction::triggered, this, [this]() {
+        changeLanguage("en");
+    });
     
     createTrayActions();
     createTrayIcon();
@@ -651,4 +669,62 @@ void gestor::showMessage() {
                          .arg(getConnectedClients().count()),
                          QSystemTrayIcon::Information,
                          5000);
+}
+
+void gestor::loadTranslations()
+{
+    // Cargar el idioma del sistema o el guardado en la configuración
+    QSettings settings("MiEmpresa", "GestorFTP");
+    QString language = settings.value("language", QLocale::system().name()).toString();
+    
+    // Crear el traductor
+    translator = new QTranslator(this);
+    
+    // Intentar cargar la traducción
+    if (language.startsWith("es")) {
+        translator->load(":/translations/gestor_es.qm");
+    } else {
+        translator->load(":/translations/gestor_en.qm");
+    }
+    
+    // Instalar el traductor
+    qApp->installTranslator(translator);
+}
+
+void gestor::changeLanguage(const QString &language)
+{
+    QSettings settings("MiEmpresa", "GestorFTP");
+    settings.setValue("language", language);
+    
+    // Eliminar traductor actual
+    qApp->removeTranslator(translator);
+    
+    // Cargar nueva traducción
+    if (language.startsWith("es")) {
+        translator->load(":/translations/gestor_es.qm");
+    } else {
+        translator->load(":/translations/gestor_en.qm");
+    }
+    
+    // Instalar el nuevo traductor
+    qApp->installTranslator(translator);
+    
+    // Actualizar la interfaz
+    ui->retranslateUi(this);
+    
+    // Actualizar textos dinámicos
+    updateDynamicTexts();
+}
+
+void gestor::updateDynamicTexts()
+{
+    // Actualizar textos que no se actualizan automáticamente
+    if (ftpThread) {
+        updateStatusBar();
+    }
+    
+    // Actualizar el texto de ayuda
+    if (ui->txtConsoleOutput->toPlainText().contains("Comandos disponibles")) {
+        executeCommand("help");
+    }
 }

@@ -11,17 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Gestor FTP</string>
-  </property>
-  <property name="windowIcon">
-   <iconset resource="recursos.qrc">
-    <normaloff>:/img/LTakzdPkT5iXZdyYumu8uw.png</normaloff>:/img/LTakzdPkT5iXZdyYumu8uw.png</iconset>
-  </property>
-  <property name="iconSize">
-   <size>
-    <width>60</width>
-    <height>60</height>
-   </size>
+   <string>Servidor FTP</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -125,11 +115,59 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuArchivo">
+    <property name="title">
+     <string>Archivo</string>
+    </property>
+    <addaction name="actionSalir"/>
+   </widget>
+   <widget class="QMenu" name="menuServidor">
+    <property name="title">
+     <string>Servidor</string>
+    </property>
+    <addaction name="actionIniciar"/>
+    <addaction name="actionDetener"/>
+   </widget>
+   <widget class="QMenu" name="menuIdioma">
+    <property name="title">
+     <string>Idioma</string>
+    </property>
+    <addaction name="actionEspanol"/>
+    <addaction name="actionIngles"/>
+   </widget>
+   <addaction name="menuArchivo"/>
+   <addaction name="menuServidor"/>
+   <addaction name="menuIdioma"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionSalir">
+   <property name="text">
+    <string>Salir</string>
+   </property>
+  </action>
+  <action name="actionIniciar">
+   <property name="text">
+    <string>Iniciar</string>
+   </property>
+  </action>
+  <action name="actionDetener">
+   <property name="text">
+    <string>Detener</string>
+   </property>
+  </action>
+  <action name="actionEspanol">
+   <property name="text">
+    <string>Español</string>
+   </property>
+  </action>
+  <action name="actionIngles">
+   <property name="text">
+    <string>English</string>
+   </property>
+  </action>
  </widget>
  <resources>
   <include location="recursos.qrc"/>

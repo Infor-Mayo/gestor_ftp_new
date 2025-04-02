@@ -9,6 +9,7 @@
 #include <QCompleter>
 #include <QSystemTrayIcon>
 #include <QMenu>
+#include <QTranslator>
 #include "FtpServerThread.h"
 #include "DatabaseManager.h"
 
@@ -46,6 +47,7 @@ public slots:
     void showMessage();
     void appendToTabLogs(const QString& message);
     void appendToTabConsole(const QString& message);
+    void changeLanguage(const QString &language);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -80,6 +82,11 @@ private:
     QAction *maximizeAction;
     QAction *restoreAction;
     QAction *quitAction;
+    QTranslator *translator;
+
+private:
+    void loadTranslations();
+    void updateDynamicTexts();
 };
 
 #endif // GESTOR_H

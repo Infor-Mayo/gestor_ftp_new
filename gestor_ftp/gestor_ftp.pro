@@ -29,11 +29,6 @@ HEADERS += \
 FORMS += \
     gestor.ui
 
-TRANSLATIONS += \
-    gestor_ftp_es_CU.ts
-CONFIG += lrelease
-CONFIG += embed_translations
-
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
@@ -46,3 +41,8 @@ DEFINES += SQLITE_CORE SQLITE_OMIT_LOAD_EXTENSION
 
 RESOURCES += \
     recursos.qrc
+
+# Translations
+TRANSLATIONS += \
+    translations/gestor_es.ts \
+    translations/gestor_en.ts
