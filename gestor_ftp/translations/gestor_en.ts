@@ -6,22 +6,22 @@
     <message>
         <location filename="../gestor.ui" line="14"/>
         <source>Servidor FTP</source>
-        <translation>FTP Server</translation>
+        <translation>FTP Manager</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="23"/>
         <source>Iniciar Servidor</source>
-        <translation>Start Server</translation>
+        <translation>Start server</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="33"/>
         <source>Detener Servidor</source>
-        <translation>Stop Server</translation>
+        <translation>Stop server</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="46"/>
         <source>Consola</source>
-        <translation>Console</translation>
+        <translation>Event console</translation>
     </message>
     <message>
         <source>Logs</source>

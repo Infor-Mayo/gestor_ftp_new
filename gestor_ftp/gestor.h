@@ -10,6 +10,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QTranslator>
+#include <QActionGroup>
 #include "FtpServerThread.h"
 #include "DatabaseManager.h"
 
@@ -47,7 +48,7 @@ public slots:
     void showMessage();
     void appendToTabLogs(const QString& message);
     void appendToTabConsole(const QString& message);
-    void changeLanguage(const QString &language);
+    void changeLanguage(const QString &locale);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -82,11 +83,30 @@ private:
     QAction *maximizeAction;
     QAction *restoreAction;
     QAction *quitAction;
-    QTranslator *translator;
 
-private:
+    const QMap<QString, QString> SUPPORTED_LANGUAGES = {
+        {"es", "Español"},
+        {"en", "English"},
+        {"fr", "Français"},
+        {"de", "Deutsch"},
+        {"it", "Italiano"},
+        {"pt", "Português"},
+        {"ru", "Русский"},
+        {"zh", "中文"},
+        {"ja", "日本語"},
+        {"ko", "한국어"},
+        {"ar", "العربية"}
+    };
+
+    void createLanguageMenu();
     void loadTranslations();
+    QString getLanguageName(const QString &locale);
+    QString detectSystemLanguage();
     void updateDynamicTexts();
+
+    QTranslator *translator;
+    QMenu *languageMenu;
+    QActionGroup *languageGroup;
 };
 
 #endif // GESTOR_H

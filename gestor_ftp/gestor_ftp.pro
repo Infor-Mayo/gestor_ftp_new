@@ -30,7 +30,7 @@ FORMS += \
     gestor.ui
 
 # Copiar archivos de traducción al directorio de compilación
-CONFIG += lrelease
+CONFIG += lrelease embed_translations
 
 # Definir las rutas de origen y destino para las traducciones
 TRANSLATIONS_DIR = $$PWD/translations
@@ -50,7 +50,16 @@ release {
 # Translations
 TRANSLATIONS += \
     translations/gestor_es.ts \
-    translations/gestor_en.ts
+    translations/gestor_en.ts \
+    translations/gestor_fr.ts \
+    translations/gestor_de.ts \
+    translations/gestor_it.ts \
+    translations/gestor_pt.ts \
+    translations/gestor_ru.ts \
+    translations/gestor_zh.ts \
+    translations/gestor_ja.ts \
+    translations/gestor_ko.ts \
+    translations/gestor_ar.ts
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

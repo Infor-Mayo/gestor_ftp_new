@@ -33,23 +33,17 @@ gestor::gestor(QWidget *parent)
     , trayIconMenu(nullptr)
     , trayIcon(nullptr)
     , translator(nullptr)
+    , languageMenu(nullptr)
+    , languageGroup(nullptr)
 {
     ui->setupUi(this);
     
-    // Cargar traducciones
-    loadTranslations();
-    
-    // Conectar acciones del menú de idiomas
-    connect(ui->actionEspanol, &QAction::triggered, this, [this]() {
-        changeLanguage("es");
-    });
-    
-    connect(ui->actionIngles, &QAction::triggered, this, [this]() {
-        changeLanguage("en");
-    });
-    
     createTrayActions();
     createTrayIcon();
+    createLanguageMenu();
+    
+    // Cargar traducciones después de crear el menú de idiomas
+    loadTranslations();
     
     trayIcon->show();
     
@@ -673,58 +667,137 @@ void gestor::showMessage() {
 
 void gestor::loadTranslations()
 {
-    // Cargar el idioma del sistema o el guardado en la configuración
-    QSettings settings("MiEmpresa", "GestorFTP");
-    QString language = settings.value("language", QLocale::system().name()).toString();
-    
-    // Crear el traductor si no existe
     if (!translator) {
         translator = new QTranslator(this);
     }
-    
-    // Intentar cargar la traducción
-    QString qmFile;
-    QString translationsPath = QCoreApplication::applicationDirPath() + "/translations/";
-    
-    if (language.startsWith("es")) {
-        qmFile = translationsPath + "gestor_es.qm";
-    } else {
-        qmFile = translationsPath + "gestor_en.qm";
-    }
-    
-    qDebug() << "Buscando archivo de traducción en:" << qmFile;
-    
-    // Eliminar traductor actual si existe
+
+    // Remover el traductor actual si existe
     qApp->removeTranslator(translator);
-    
-    // Cargar e instalar el nuevo traductor
-    if (translator->load(qmFile)) {
+
+    QSettings settings("MiEmpresa", "GestorFTP");
+    QString language = settings.value("language", detectSystemLanguage()).toString();
+    QString qmFile = QString("translations/gestor_%1.qm").arg(language);
+    QString qmPath = QCoreApplication::applicationDirPath() + "/" + qmFile;
+
+    // Verificar si el archivo existe
+    if (!QFile::exists(qmPath)) {
+        qDebug() << "Translation file does not exist:" << qmPath;
+        qDebug() << "Falling back to English";
+        language = "en";
+        qmFile = QString("translations/gestor_%1.qm").arg(language);
+        qmPath = QCoreApplication::applicationDirPath() + "/" + qmFile;
+    }
+
+    if (translator->load(qmPath)) {
         qApp->installTranslator(translator);
-        // Actualizar todos los textos de la interfaz
-        ui->retranslateUi(this);
         updateDynamicTexts();
+        qDebug() << "Successfully loaded translation file:" << qmPath;
     } else {
-        qDebug() << "Error loading translation file:" << qmFile;
+        qDebug() << "Error loading translation file:" << qmPath;
+        qDebug() << "Application path:" << QCoreApplication::applicationDirPath();
     }
 }
 
-void gestor::changeLanguage(const QString &language)
+void gestor::changeLanguage(const QString &locale)
 {
     QSettings settings("MiEmpresa", "GestorFTP");
-    settings.setValue("language", language);
-    
+    settings.setValue("language", locale);
     loadTranslations();
+}
+
+QString gestor::getLanguageName(const QString &locale)
+{
+    return SUPPORTED_LANGUAGES.value(locale, "Unknown");
+}
+
+QString gestor::detectSystemLanguage()
+{
+    QString systemLocale = QLocale::system().name().split('_').first();
+    return SUPPORTED_LANGUAGES.contains(systemLocale) ? systemLocale : "en";
 }
 
 void gestor::updateDynamicTexts()
 {
-    // Actualizar textos que no se actualizan automáticamente
-    if (ftpThread) {
-        updateStatusBar();
-    }
+    // Actualizar textos de la interfaz
+    setWindowTitle(tr("Servidor FTP"));
+    ui->btnStartServer->setText(tr("Iniciar Servidor"));
+    ui->btnStopServer->setText(tr("Detener Servidor"));
+    ui->tabConsole->setWindowTitle(tr("Consola"));
+    ui->txtCommandInput->setPlaceholderText(tr("Ingrese comando (ej: start-server, stop-server, list-users)..."));
+    ui->btnExecute->setText(tr("Ejecutar"));
+    ui->tabLogs->setWindowTitle(tr("Logs del Servidor"));
+    ui->btnLimpiarLogs->setText(tr("Limpiar Logs"));
+    ui->btnGuardarLogs->setText(tr("Guardar Logs"));
     
-    // Actualizar el texto de ayuda
-    if (ui->txtConsoleOutput->toPlainText().contains("Comandos disponibles")) {
-        executeCommand("help");
+    // Actualizar menús
+    ui->menuArchivo->setTitle(tr("Archivo"));
+    ui->menuServidor->setTitle(tr("Servidor"));
+    ui->menuIdioma->setTitle(tr("Idioma"));
+    
+    // Actualizar acciones del menú
+    minimizeAction->setText(tr("&Minimizar"));
+    maximizeAction->setText(tr("&Maximizar"));
+    restoreAction->setText(tr("&Restaurar"));
+    quitAction->setText(tr("&Salir"));
+}
+
+void gestor::createLanguageMenu()
+{
+    if (!languageGroup) {
+        languageGroup = new QActionGroup(this);
+        languageGroup->setExclusive(true);
     }
+
+    // Crear el menú de idiomas si no existe
+    if (!ui->menuIdioma) {
+        ui->menuIdioma = menuBar()->addMenu(tr("Idioma"));
+    }
+
+    // Limpiar menú y grupo existentes
+    ui->menuIdioma->clear();
+    for (QAction* action : languageGroup->actions()) {
+        languageGroup->removeAction(action);
+        delete action;
+    }
+
+    // Definir los idiomas disponibles
+    QMap<QString, QString> languages;
+    languages["es"] = tr("Español");
+    languages["en"] = tr("English");
+    languages["fr"] = tr("Français");
+    languages["de"] = tr("Deutsch");
+    languages["it"] = tr("Italiano");
+    languages["pt"] = tr("Português");
+    languages["ru"] = tr("Русский");
+    languages["zh"] = tr("中文");
+    languages["ja"] = tr("日本語");
+    languages["ko"] = tr("한국어");
+    languages["ar"] = tr("العربية");
+
+    // Obtener el idioma actual
+    QSettings settings("MiEmpresa", "GestorFTP");
+    QString currentLanguage = settings.value("language", detectSystemLanguage()).toString();
+
+    // Crear acciones para cada idioma
+    for (auto it = languages.begin(); it != languages.end(); ++it) {
+        QString locale = it.key();
+        QString language = it.value();
+        
+        QAction* action = new QAction(language, this);
+        action->setCheckable(true);
+        action->setData(locale);
+        
+        if (locale == currentLanguage) {
+            action->setChecked(true);
+        }
+        
+        languageGroup->addAction(action);
+        ui->menuIdioma->addAction(action);
+    }
+
+    // Conectar la señal triggered() del grupo de acciones
+    connect(languageGroup, &QActionGroup::triggered, this, [this](QAction* action) {
+        QString locale = action->data().toString();
+        changeLanguage(locale);
+    });
 }
