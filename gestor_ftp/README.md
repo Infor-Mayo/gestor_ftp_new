@@ -1,101 +1,54 @@
-# Gestor FTP Avanzado
+# Gestor FTP
 
-Servidor FTP multihilo con interfaz gráfica y características empresariales desarrollado en C++/Qt
+Servidor FTP con interfaz gráfica implementado en C++ usando el framework Qt.
 
-![Diagrama de arquitectura](https://via.placeholder.com/800x400.png?text=Diagrama+de+Arquitectura)
+## Características
 
-## Características Principales
+- Interfaz gráfica intuitiva con consola de comandos integrada
+- Soporte para múltiples usuarios con autenticación
+- Transferencia de archivos segura
+- Logging detallado de operaciones
+- Monitoreo en tiempo real de conexiones
+- Soporte para conexiones IPv4 e IPv6
+- Interfaz de línea de comandos para administración
+- Sistema de caché de directorios para mejor rendimiento
+- Límite configurable de conexiones simultáneas
+- Minimización a bandeja del sistema
 
-- ✅ Servidor FTP multihilo con límite de conexiones
-- 🔒 Autenticación segura con salting y hashing SHA-256
-- 📊 Monitorización en tiempo real (CPU, memoria, red)
-- 📝 Sistema de logging dual (servidor y auditoría)
-- 🛡️ Políticas de seguridad personalizables (IPs bloqueadas, complejidad de contraseñas)
-- 💻 Interfaz gráfica con consola integrada
-- 🗃️ Base de datos SQLite para gestión de usuarios
-- ⚡ Control de velocidad de transferencia
-- 🌍 Soporte para IPv4/IPv6
+## Requisitos
 
-## Requisitos Previos
-
-- Qt 5.15+ o Qt 6.x
-- Compilador C++17 (GCC, Clang o MSVC)
-- SQLite3
-- CMake 3.12+
+- Qt 6.7.2 o superior
+- Compilador C++ compatible con C++17
+- Sistema operativo: Windows (probado en Windows 10/11)
 
 ## Instalación
 
-```bash
-git clone https://github.com/tuusuario/gestor_ftp.git
-cd gestor_ftp
-qmake gestor_ftp.pro
-make -j4
-```
+1. Clonar el repositorio
+2. Abrir el proyecto `gestor_ftp.pro` en Qt Creator
+3. Compilar y ejecutar
 
-## Configuración Inicial
+## Comandos de Consola
 
-1. Al primer inicio, seleccionar directorio raíz
-2. Crear usuarios iniciales:
+- `startserver`, `start` - Inicia el servidor
+- `stopserver`, `stop` - Detiene el servidor
+- `status` - Muestra el estado del servidor
+- `dir [ruta]` - Cambia la ruta de arranque del servidor
+- `maxconnect [num]` - Establece/muestra máximo de conexiones
+- `clear` - Limpia la consola
+- `log on|off` - Activa/desactiva logs
+- `log clear|save` - Limpia o guarda los logs
+- `ip` - Muestra las IPs disponibles
+- `listcon` - Lista clientes conectados
+- `desuser <ip>` - Desconecta un cliente
+- `adduser <usuario> <contraseña>` - Agrega usuario
+- `moduser <usuario> <nueva_contraseña>` - Modifica usuario
+- `listuser` - Lista usuarios
+- `elimuser <usuario>` - Elimina usuario
 
-```bash
-add-user <nombre> <contraseña>
-Ejemplo: add-user admin P@ssw0rd123!
-```
+## Versión Actual
 
-## Modo de Uso
+0.0.33
 
-```bash
-# Iniciar servidor
-start-server
+## Licencia
 
-# Gestionar usuarios
-list-users
-add-user <user> <pass>
-remove-user <user>
-
-# Configuración
-set-port <puerto>
-set-dir
-
-# Monitoreo
-status-server
-
-# Ayuda
-help
-```
-
-## Despliegue
-
-### Linux
-
-```bash
-sudo apt install qtbase5-dev sqlite3 libsqlite3-dev
-./gestor_ftp
-```
-
-### Windows
-
-1. Instalar [Qt MSVC](https://www.qt.io/download)
-2. Instalar [SQLite3](https://sqlite.org/download.html)
-3. Compilar proyecto en Qt Creator
-
-### Variables de Entorno
-
-```bash
-export FTP_ROOT_DIR=/ruta/directorio
-export FTP_MAX_CONNECTIONS=50
-```
-
-## Estructura del Proyecto
-
-```text
-gestor_ftp/
-├── core/               # Componentes principales
-│   ├── FtpServer       # Lógica del servidor
-│   ├── ClientHandler   # Manejo de conexiones
-│   └── Security        # Políticas de seguridad
-├── database/           # Gestión de usuarios
-├── monitoring/         # Métricas del sistema
-├── gui/                # Interfaz gráfica
-└── ...
-```
+Este proyecto está bajo la Licencia MIT.
