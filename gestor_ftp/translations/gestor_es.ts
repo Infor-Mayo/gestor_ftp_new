@@ -4,188 +4,239 @@
 <context>
     <name>gestor</name>
     <message>
+        <location filename="../gestor.ui" line="14"/>
         <source>Servidor FTP</source>
         <translation>Servidor FTP</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="23"/>
         <source>Iniciar Servidor</source>
         <translation>Iniciar Servidor</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="33"/>
         <source>Detener Servidor</source>
         <translation>Detener Servidor</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="46"/>
         <source>Consola</source>
         <translation>Consola</translation>
     </message>
     <message>
         <source>Logs</source>
-        <translation>Registros</translation>
+        <translation type="vanished">Registros</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="68"/>
         <source>Ejecutar</source>
         <translation>Ejecutar</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="93"/>
         <source>Limpiar Logs</source>
         <translation>Limpiar Registros</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="100"/>
+        <location filename="../gestor.cpp" line="579"/>
         <source>Guardar Logs</source>
         <translation>Guardar Registros</translation>
     </message>
     <message>
         <source>Comandos disponibles:</source>
-        <translation>Comandos disponibles:</translation>
+        <translation type="vanished">Comandos disponibles:</translation>
     </message>
     <message>
         <source>Inicia el servidor</source>
-        <translation>Inicia el servidor</translation>
+        <translation type="vanished">Inicia el servidor</translation>
     </message>
     <message>
         <source>Detiene el servidor</source>
-        <translation>Detiene el servidor</translation>
+        <translation type="vanished">Detiene el servidor</translation>
     </message>
     <message>
         <source>Muestra el estado del servidor</source>
-        <translation>Muestra el estado del servidor</translation>
+        <translation type="vanished">Muestra el estado del servidor</translation>
     </message>
     <message>
         <source>Cambia la ruta de arranque del servidor</source>
-        <translation>Cambia la ruta de arranque del servidor</translation>
+        <translation type="vanished">Cambia la ruta de arranque del servidor</translation>
     </message>
     <message>
         <source>Establece/muestra máximo de conexiones</source>
-        <translation>Establece/muestra máximo de conexiones</translation>
+        <translation type="vanished">Establece/muestra máximo de conexiones</translation>
     </message>
     <message>
         <source>Limpia la consola</source>
-        <translation>Limpia la consola</translation>
+        <translation type="vanished">Limpia la consola</translation>
     </message>
     <message>
         <source>Activa/desactiva logs del servidor</source>
-        <translation>Activa/desactiva registros del servidor</translation>
+        <translation type="vanished">Activa/desactiva registros del servidor</translation>
     </message>
     <message>
         <source>Limpia o guarda los logs</source>
-        <translation>Limpia o guarda los registros</translation>
+        <translation type="vanished">Limpia o guarda los registros</translation>
     </message>
     <message>
         <source>Muestra las IPs disponibles</source>
-        <translation>Muestra las IPs disponibles</translation>
+        <translation type="vanished">Muestra las IPs disponibles</translation>
     </message>
     <message>
         <source>Lista los clientes conectados</source>
-        <translation>Lista los clientes conectados</translation>
+        <translation type="vanished">Lista los clientes conectados</translation>
     </message>
     <message>
         <source>Desconecta un cliente</source>
-        <translation>Desconecta un cliente</translation>
+        <translation type="vanished">Desconecta un cliente</translation>
     </message>
     <message>
         <source>Agrega un usuario</source>
-        <translation>Agrega un usuario</translation>
+        <translation type="vanished">Agrega un usuario</translation>
     </message>
     <message>
         <source>Modifica un usuario</source>
-        <translation>Modifica un usuario</translation>
+        <translation type="vanished">Modifica un usuario</translation>
     </message>
     <message>
         <source>Lista los usuarios</source>
-        <translation>Lista los usuarios</translation>
+        <translation type="vanished">Lista los usuarios</translation>
     </message>
     <message>
         <source>Elimina un usuario</source>
-        <translation>Elimina un usuario</translation>
+        <translation type="vanished">Elimina un usuario</translation>
     </message>
     <message>
         <source>Error: El directorio especificado no existe</source>
-        <translation>Error: El directorio especificado no existe</translation>
+        <translation type="vanished">Error: El directorio especificado no existe</translation>
     </message>
     <message>
         <source>Ruta de arranque del servidor cambiada a</source>
-        <translation>Ruta de arranque del servidor cambiada a</translation>
+        <translation type="vanished">Ruta de arranque del servidor cambiada a</translation>
     </message>
     <message>
         <source>Ruta de arranque actual del servidor</source>
-        <translation>Ruta de arranque actual del servidor</translation>
+        <translation type="vanished">Ruta de arranque actual del servidor</translation>
     </message>
     <message>
         <source>Servidor detenido</source>
-        <translation>Servidor detenido</translation>
+        <translation type="vanished">Servidor detenido</translation>
     </message>
     <message>
         <source>El servidor ya está en ejecución</source>
-        <translation>El servidor ya está en ejecución</translation>
+        <translation type="vanished">El servidor ya está en ejecución</translation>
     </message>
     <message>
         <source>Deteniendo servidor FTP...</source>
-        <translation>Deteniendo servidor FTP...</translation>
+        <translation type="vanished">Deteniendo servidor FTP...</translation>
     </message>
     <message>
         <source>Servidor FTP detenido</source>
-        <translation>Servidor FTP detenido</translation>
+        <translation type="vanished">Servidor FTP detenido</translation>
     </message>
     <message>
         <source>Error</source>
-        <translation>Error</translation>
+        <translation type="vanished">Error</translation>
     </message>
     <message>
         <source>Estado</source>
-        <translation>Estado</translation>
+        <translation type="vanished">Estado</translation>
     </message>
     <message>
         <source>Directorio raíz</source>
-        <translation>Directorio raíz</translation>
+        <translation type="vanished">Directorio raíz</translation>
     </message>
     <message>
         <source>Puerto</source>
-        <translation>Puerto</translation>
+        <translation type="vanished">Puerto</translation>
     </message>
     <message>
         <source>Conexiones activas</source>
-        <translation>Conexiones activas</translation>
+        <translation type="vanished">Conexiones activas</translation>
     </message>
     <message>
         <source>Tiempo actividad</source>
-        <translation>Tiempo actividad</translation>
+        <translation type="vanished">Tiempo actividad</translation>
     </message>
     <message>
         <source>Bytes transferidos</source>
-        <translation>Bytes transferidos</translation>
+        <translation type="vanished">Bytes transferidos</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="61"/>
+        <source>Ingrese comando (ej: start-server, stop-server, list-users)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.ui" line="78"/>
+        <source>Logs del Servidor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.ui" line="123"/>
         <source>Archivo</source>
         <translation>Archivo</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="129"/>
         <source>Servidor</source>
         <translation>Servidor</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="136"/>
         <source>Idioma</source>
         <translation>Idioma</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="148"/>
         <source>Salir</source>
         <translation>Salir</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="153"/>
         <source>Iniciar</source>
         <translation>Iniciar</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="158"/>
         <source>Detener</source>
         <translation>Detener</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="163"/>
         <source>Español</source>
         <translation>Español</translation>
     </message>
     <message>
+        <location filename="../gestor.ui" line="168"/>
         <source>English</source>
         <translation>English</translation>
+    </message>
+    <message>
+        <location filename="../gestor.cpp" line="580"/>
+        <source>Archivos de texto (*.txt);;Todos los archivos (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.cpp" line="596"/>
+        <source>Mi&amp;nimizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.cpp" line="599"/>
+        <source>Ma&amp;ximizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.cpp" line="602"/>
+        <source>&amp;Restaurar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gestor.cpp" line="605"/>
+        <source>&amp;Salir</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

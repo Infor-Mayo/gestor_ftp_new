@@ -29,6 +29,29 @@ HEADERS += \
 FORMS += \
     gestor.ui
 
+# Copiar archivos de traducción al directorio de compilación
+CONFIG += lrelease
+
+# Definir las rutas de origen y destino para las traducciones
+TRANSLATIONS_DIR = $$PWD/translations
+DEBUG_DIR = $$OUT_PWD/debug
+RELEASE_DIR = $$OUT_PWD/release
+
+# Crear directorios de traducciones
+debug {
+    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_path($$DEBUG_DIR/translations) $$escape_expand(\\n\\t)
+    QMAKE_POST_LINK += $(COPY_FILE) $$shell_path($$TRANSLATIONS_DIR/*.qm) $$shell_path($$DEBUG_DIR/translations) $$escape_expand(\\n\\t)
+}
+release {
+    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_path($$RELEASE_DIR/translations) $$escape_expand(\\n\\t)
+    QMAKE_POST_LINK += $(COPY_FILE) $$shell_path($$TRANSLATIONS_DIR/*.qm) $$shell_path($$RELEASE_DIR/translations)
+}
+
+# Translations
+TRANSLATIONS += \
+    translations/gestor_es.ts \
+    translations/gestor_en.ts
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
@@ -41,8 +64,3 @@ DEFINES += SQLITE_CORE SQLITE_OMIT_LOAD_EXTENSION
 
 RESOURCES += \
     recursos.qrc
-
-# Translations
-TRANSLATIONS += \
-    translations/gestor_es.ts \
-    translations/gestor_en.ts

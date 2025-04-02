@@ -677,18 +677,35 @@ void gestor::loadTranslations()
     QSettings settings("MiEmpresa", "GestorFTP");
     QString language = settings.value("language", QLocale::system().name()).toString();
     
-    // Crear el traductor
-    translator = new QTranslator(this);
-    
-    // Intentar cargar la traducción
-    if (language.startsWith("es")) {
-        translator->load(":/translations/gestor_es.qm");
-    } else {
-        translator->load(":/translations/gestor_en.qm");
+    // Crear el traductor si no existe
+    if (!translator) {
+        translator = new QTranslator(this);
     }
     
-    // Instalar el traductor
-    qApp->installTranslator(translator);
+    // Intentar cargar la traducción
+    QString qmFile;
+    QString translationsPath = QCoreApplication::applicationDirPath() + "/translations/";
+    
+    if (language.startsWith("es")) {
+        qmFile = translationsPath + "gestor_es.qm";
+    } else {
+        qmFile = translationsPath + "gestor_en.qm";
+    }
+    
+    qDebug() << "Buscando archivo de traducción en:" << qmFile;
+    
+    // Eliminar traductor actual si existe
+    qApp->removeTranslator(translator);
+    
+    // Cargar e instalar el nuevo traductor
+    if (translator->load(qmFile)) {
+        qApp->installTranslator(translator);
+        // Actualizar todos los textos de la interfaz
+        ui->retranslateUi(this);
+        updateDynamicTexts();
+    } else {
+        qDebug() << "Error loading translation file:" << qmFile;
+    }
 }
 
 void gestor::changeLanguage(const QString &language)
@@ -696,24 +713,7 @@ void gestor::changeLanguage(const QString &language)
     QSettings settings("MiEmpresa", "GestorFTP");
     settings.setValue("language", language);
     
-    // Eliminar traductor actual
-    qApp->removeTranslator(translator);
-    
-    // Cargar nueva traducción
-    if (language.startsWith("es")) {
-        translator->load(":/translations/gestor_es.qm");
-    } else {
-        translator->load(":/translations/gestor_en.qm");
-    }
-    
-    // Instalar el nuevo traductor
-    qApp->installTranslator(translator);
-    
-    // Actualizar la interfaz
-    ui->retranslateUi(this);
-    
-    // Actualizar textos dinámicos
-    updateDynamicTexts();
+    loadTranslations();
 }
 
 void gestor::updateDynamicTexts()
