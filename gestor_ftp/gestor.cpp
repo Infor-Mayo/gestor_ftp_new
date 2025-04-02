@@ -298,16 +298,24 @@ void gestor::executeCommand(const QString& command)
         }
     }
     else if (cmd == "dir") {
-        QString path = parts.size() > 1 ? parts[1] : ftpThread ? ftpThread->getRootDir() : rootDir;
-        QDir dir(path);
-        if (dir.exists()) {
-            QStringList entries = dir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
-            appendConsoleOutput("Contenido de " + path + ":");
-            for (const QString& entry : entries) {
-                appendConsoleOutput("  " + entry);
+        if (parts.size() > 1) {
+            QString newPath = parts[1];
+            QDir dir(newPath);
+            if (dir.exists()) {
+                rootDir = dir.absolutePath();
+                if (ftpThread) {
+                    ftpThread->setRootDir(rootDir);
+                }
+                // Guardar la nueva ruta en la configuración
+                QSettings settings("MiEmpresa", "GestorFTP");
+                settings.setValue("rootDir", rootDir);
+                appendConsoleOutput("Ruta de arranque del servidor cambiada a: " + rootDir);
+            } else {
+                appendConsoleOutput("Error: El directorio especificado no existe: " + newPath);
             }
         } else {
-            appendConsoleOutput("Directorio no encontrado: " + path);
+            QString currentPath = ftpThread ? ftpThread->getRootDir() : rootDir;
+            appendConsoleOutput("Ruta de arranque actual del servidor: " + currentPath);
         }
     }
     else if (cmd == "maxconnect") {
@@ -399,7 +407,7 @@ void gestor::executeCommand(const QString& command)
             "  startserver, start - Inicia el servidor\n"
             "  stopserver, stop - Detiene el servidor\n"
             "  status - Muestra el estado del servidor\n"
-            "  dir [ruta] - Lista el contenido de un directorio\n"
+            "  dir [ruta] - Cambia la ruta de arranque del servidor\n"
             "  maxconnect [num] - Establece/muestra máximo de conexiones\n"
             "  clear - Limpia la consola\n"
             "  log on|off - Activa/desactiva logs del servidor\n"
