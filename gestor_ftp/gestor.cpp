@@ -679,15 +679,6 @@ void gestor::loadTranslations()
     QString qmFile = QString("translations/gestor_%1.qm").arg(language);
     QString qmPath = QCoreApplication::applicationDirPath() + "/" + qmFile;
 
-    // Verificar si el archivo existe
-    if (!QFile::exists(qmPath)) {
-        qDebug() << "Translation file does not exist:" << qmPath;
-        qDebug() << "Falling back to English";
-        language = "en";
-        qmFile = QString("translations/gestor_%1.qm").arg(language);
-        qmPath = QCoreApplication::applicationDirPath() + "/" + qmFile;
-    }
-
     if (translator->load(qmPath)) {
         qApp->installTranslator(translator);
         updateDynamicTexts();
@@ -696,49 +687,6 @@ void gestor::loadTranslations()
         qDebug() << "Error loading translation file:" << qmPath;
         qDebug() << "Application path:" << QCoreApplication::applicationDirPath();
     }
-}
-
-void gestor::changeLanguage(const QString &locale)
-{
-    QSettings settings("MiEmpresa", "GestorFTP");
-    settings.setValue("language", locale);
-    loadTranslations();
-}
-
-QString gestor::getLanguageName(const QString &locale)
-{
-    return SUPPORTED_LANGUAGES.value(locale, "Unknown");
-}
-
-QString gestor::detectSystemLanguage()
-{
-    QString systemLocale = QLocale::system().name().split('_').first();
-    return SUPPORTED_LANGUAGES.contains(systemLocale) ? systemLocale : "en";
-}
-
-void gestor::updateDynamicTexts()
-{
-    // Actualizar textos de la interfaz
-    setWindowTitle(tr("Servidor FTP"));
-    ui->btnStartServer->setText(tr("Iniciar Servidor"));
-    ui->btnStopServer->setText(tr("Detener Servidor"));
-    ui->tabConsole->setWindowTitle(tr("Consola"));
-    ui->txtCommandInput->setPlaceholderText(tr("Ingrese comando (ej: start-server, stop-server, list-users)..."));
-    ui->btnExecute->setText(tr("Ejecutar"));
-    ui->tabLogs->setWindowTitle(tr("Logs del Servidor"));
-    ui->btnLimpiarLogs->setText(tr("Limpiar Logs"));
-    ui->btnGuardarLogs->setText(tr("Guardar Logs"));
-    
-    // Actualizar menús
-    ui->menuArchivo->setTitle(tr("Archivo"));
-    ui->menuServidor->setTitle(tr("Servidor"));
-    ui->menuIdioma->setTitle(tr("Idioma"));
-    
-    // Actualizar acciones del menú
-    minimizeAction->setText(tr("&Minimizar"));
-    maximizeAction->setText(tr("&Maximizar"));
-    restoreAction->setText(tr("&Restaurar"));
-    quitAction->setText(tr("&Salir"));
 }
 
 void gestor::createLanguageMenu()
@@ -800,4 +748,47 @@ void gestor::createLanguageMenu()
         QString locale = action->data().toString();
         changeLanguage(locale);
     });
+}
+
+void gestor::changeLanguage(const QString &locale)
+{
+    QSettings settings("MiEmpresa", "GestorFTP");
+    settings.setValue("language", locale);
+    loadTranslations();
+}
+
+QString gestor::getLanguageName(const QString &locale)
+{
+    return SUPPORTED_LANGUAGES.value(locale, "Unknown");
+}
+
+QString gestor::detectSystemLanguage()
+{
+    QString systemLocale = QLocale::system().name().split('_').first();
+    return SUPPORTED_LANGUAGES.contains(systemLocale) ? systemLocale : "en";
+}
+
+void gestor::updateDynamicTexts()
+{
+    // Actualizar textos de la interfaz
+    setWindowTitle(tr("Servidor FTP"));
+    ui->btnStartServer->setText(tr("Iniciar Servidor"));
+    ui->btnStopServer->setText(tr("Detener Servidor"));
+    ui->tabConsole->setWindowTitle(tr("Consola"));
+    ui->txtCommandInput->setPlaceholderText(tr("Ingrese comando (ej: start-server, stop-server, list-users)..."));
+    ui->btnExecute->setText(tr("Ejecutar"));
+    ui->tabLogs->setWindowTitle(tr("Logs del Servidor"));
+    ui->btnLimpiarLogs->setText(tr("Limpiar Logs"));
+    ui->btnGuardarLogs->setText(tr("Guardar Logs"));
+    
+    // Actualizar menús
+    ui->menuArchivo->setTitle(tr("Archivo"));
+    ui->menuServidor->setTitle(tr("Servidor"));
+    ui->menuIdioma->setTitle(tr("Idioma"));
+    
+    // Actualizar acciones del menú
+    minimizeAction->setText(tr("&Minimizar"));
+    maximizeAction->setText(tr("&Maximizar"));
+    restoreAction->setText(tr("&Restaurar"));
+    quitAction->setText(tr("&Salir"));
 }

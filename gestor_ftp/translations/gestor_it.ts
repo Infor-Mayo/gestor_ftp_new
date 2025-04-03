@@ -2,161 +2,62 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="it_IT">
 <context>
-    <name>gestor</name>
+    <name>MainWindow</name>
     <message>
-        <source>Gestor FTP</source>
-        <translation type="vanished">Gestore FTP</translation>
-    </message>
-    <message>
-        <source>Puerto:</source>
-        <translation type="vanished">Porta:</translation>
-    </message>
-    <message>
-        <source>Directorio raíz:</source>
-        <translation type="vanished">Directory radice:</translation>
-    </message>
-    <message>
-        <source>Iniciar servidor</source>
-        <translation type="vanished">Avvia server</translation>
-    </message>
-    <message>
-        <source>Detener servidor</source>
-        <translation type="vanished">Arresta server</translation>
-    </message>
-    <message>
-        <source>Usuarios conectados:</source>
-        <translation type="vanished">Utenti connessi:</translation>
-    </message>
-    <message>
-        <source>Consola de eventos</source>
-        <translation type="vanished">Console eventi</translation>
-    </message>
-    <message>
-        <source>Ayuda</source>
-        <translation type="vanished">Aiuto</translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="14"/>
         <source>Servidor FTP</source>
-        <translation type="unfinished"></translation>
+        <translation>Server FTP</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="23"/>
         <source>Iniciar Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Avvia Server</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="33"/>
         <source>Detener Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Arresta Server</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="46"/>
         <source>Consola</source>
-        <translation type="unfinished"></translation>
+        <translation>Console</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="61"/>
-        <source>Ingrese comando (ej: start-server, stop-server, list-users)...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="68"/>
         <source>Ejecutar</source>
-        <translation type="unfinished"></translation>
+        <translation>Esegui</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="78"/>
-        <source>Logs del Servidor</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="93"/>
         <source>Limpiar Logs</source>
-        <translation type="unfinished"></translation>
+        <translation>Pulisci Log</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="100"/>
-        <location filename="../gestor.cpp" line="579"/>
         <source>Guardar Logs</source>
-        <translation type="unfinished"></translation>
+        <translation>Salva Log</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="123"/>
+        <source>Ingrese comando (ej: start-server, stop-server, list-users)...</source>
+        <translation>Inserisci comando (es: start-server, stop-server, list-users)...</translation>
+    </message>
+    <message>
+        <source>Logs del Servidor</source>
+        <translation>Log del Server</translation>
+    </message>
+    <message>
         <source>Archivo</source>
-        <translation type="unfinished"></translation>
+        <translation>File</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="129"/>
         <source>Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Server</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="136"/>
         <source>Idioma</source>
         <translation>Lingua</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="148"/>
         <source>Salir</source>
-        <translation type="unfinished"></translation>
+        <translation>Esci</translation>
     </message>
     <message>
-        <location filename="../gestor.ui" line="153"/>
         <source>Iniciar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="158"/>
-        <source>Detener</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="163"/>
-        <source>Español</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.ui" line="168"/>
-        <source>English</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Servidor iniciado en el puerto %1</source>
-        <translation type="vanished">Server avviato sulla porta %1</translation>
-    </message>
-    <message>
-        <source>Error al iniciar el servidor: %1</source>
-        <translation type="vanished">Errore durante l&apos;avvio del server: %1</translation>
-    </message>
-    <message>
-        <source>Servidor detenido</source>
-        <translation type="vanished">Server arrestato</translation>
-    </message>
-    <message>
-        <location filename="../gestor.cpp" line="580"/>
-        <source>Archivos de texto (*.txt);;Todos los archivos (*)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.cpp" line="596"/>
-        <source>Mi&amp;nimizar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.cpp" line="599"/>
-        <source>Ma&amp;ximizar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.cpp" line="602"/>
-        <source>&amp;Restaurar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gestor.cpp" line="605"/>
-        <source>&amp;Salir</source>
-        <translation type="unfinished"></translation>
+        <translation>Avvia</translation>
     </message>
 </context>
 </TS>

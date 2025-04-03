@@ -38,58 +38,58 @@
     <message>
         <location filename="../gestor.ui" line="14"/>
         <source>Servidor FTP</source>
-        <translation type="unfinished"></translation>
+        <translation>Serveur FTP</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="23"/>
         <source>Iniciar Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Démarrer le serveur</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="33"/>
         <source>Detener Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Arrêter le serveur</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="46"/>
         <source>Consola</source>
-        <translation type="unfinished"></translation>
+        <translation>Console</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="61"/>
         <source>Ingrese comando (ej: start-server, stop-server, list-users)...</source>
-        <translation type="unfinished"></translation>
+        <translation>Entrez une commande (ex: start-server, stop-server, list-users)...</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="68"/>
         <source>Ejecutar</source>
-        <translation type="unfinished"></translation>
+        <translation>Exécuter</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="78"/>
         <source>Logs del Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Logs du serveur</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="93"/>
         <source>Limpiar Logs</source>
-        <translation type="unfinished"></translation>
+        <translation>Effacer les logs</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="100"/>
         <location filename="../gestor.cpp" line="579"/>
         <source>Guardar Logs</source>
-        <translation type="unfinished"></translation>
+        <translation>Sauvegarder les logs</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="123"/>
         <source>Archivo</source>
-        <translation type="unfinished"></translation>
+        <translation>Fichier</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="129"/>
         <source>Servidor</source>
-        <translation type="unfinished"></translation>
+        <translation>Serveur</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="136"/>
@@ -99,12 +99,12 @@
     <message>
         <location filename="../gestor.ui" line="148"/>
         <source>Salir</source>
-        <translation type="unfinished"></translation>
+        <translation>Quitter</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="153"/>
         <source>Iniciar</source>
-        <translation type="unfinished"></translation>
+        <translation>Démarrer</translation>
     </message>
     <message>
         <location filename="../gestor.ui" line="158"/>
