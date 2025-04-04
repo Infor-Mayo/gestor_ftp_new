@@ -35,15 +35,19 @@ gestor::gestor(QWidget *parent)
     , translator(nullptr)
     , languageMenu(nullptr)
     , languageGroup(nullptr)
+    , themeGroup(nullptr)
+    , themeMenu(nullptr)
 {
     ui->setupUi(this);
     
     createTrayActions();
     createTrayIcon();
     createLanguageMenu();
+    createThemeMenu();
     
     // Cargar traducciones después de crear el menú de idiomas
     loadTranslations();
+    ThemeManager::loadTheme(ThemeManager::getCurrentTheme());
     
     trayIcon->show();
     
@@ -791,4 +795,46 @@ void gestor::updateDynamicTexts()
     maximizeAction->setText(tr("&Maximizar"));
     restoreAction->setText(tr("&Restaurar"));
     quitAction->setText(tr("&Salir"));
+}
+
+void gestor::createThemeMenu()
+{
+    if (!themeGroup) {
+        themeGroup = new QActionGroup(this);
+        themeGroup->setExclusive(true);
+    }
+
+    themeMenu = menuBar()->addMenu(tr("Apariencia"));
+
+    QMap<QString, QString> themes;
+    themes["light"] = tr("Tema Claro");
+    themes["dark"] = tr("Tema Oscuro");
+
+    QString currentTheme = ThemeManager::getCurrentTheme();
+
+    for (auto it = themes.begin(); it != themes.end(); ++it) {
+        QString themeName = it.key();
+        QString displayName = it.value();
+        
+        QAction* action = new QAction(displayName, this);
+        action->setCheckable(true);
+        action->setData(themeName);
+        
+        if (themeName == currentTheme) {
+            action->setChecked(true);
+        }
+        
+        themeGroup->addAction(action);
+        themeMenu->addAction(action);
+    }
+
+    connect(themeGroup, &QActionGroup::triggered, this, [this](QAction* action) {
+        QString theme = action->data().toString();
+        changeTheme(theme);
+    });
+}
+
+void gestor::changeTheme(const QString &theme)
+{
+    ThemeManager::loadTheme(theme);
 }

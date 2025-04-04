@@ -61,6 +61,9 @@ TRANSLATIONS += \
     translations/gestor_ko.ts \
     translations/gestor_ar.ts
 
+# Configuración del icono de Windows
+RC_ICONS = img/LTakzdPkT5iXZdyYumu8uw.ico
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
@@ -72,4 +75,5 @@ CONFIG += optimize_full
 DEFINES += SQLITE_CORE SQLITE_OMIT_LOAD_EXTENSION
 
 RESOURCES += \
-    recursos.qrc
+    recursos.qrc \
+    styles.qrc

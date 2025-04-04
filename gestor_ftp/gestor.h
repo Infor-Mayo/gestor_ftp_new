@@ -13,6 +13,7 @@
 #include <QActionGroup>
 #include "FtpServerThread.h"
 #include "DatabaseManager.h"
+#include "theme_manager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class gestor; }
@@ -49,6 +50,7 @@ public slots:
     void appendToTabLogs(const QString& message);
     void appendToTabConsole(const QString& message);
     void changeLanguage(const QString &locale);
+    void changeTheme(const QString &theme);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -107,6 +109,11 @@ private:
     QTranslator *translator;
     QMenu *languageMenu;
     QActionGroup *languageGroup;
+
+    QMenu *themeMenu;
+    QActionGroup *themeGroup;
+    void createThemeMenu(); 
+
 };
 
 #endif // GESTOR_H

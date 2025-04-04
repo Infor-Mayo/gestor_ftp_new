@@ -37,7 +37,7 @@ FtpClientHandler::FtpClientHandler(QTcpSocket *socket, const QHash<QString, QStr
       loggedIn(false), 
       rootDir(rootDir), 
       users(users),
-      currentDir("."), // Uso único de currentDir
+      currentDir("/"), // Inicializar con raíz en lugar de "."
       socket(socket), 
       dataSocketTimer(new QTimer(this)),
       speedLimit(1024 * 1024), 
@@ -325,99 +325,105 @@ void FtpClientHandler::handleList(const QString &arguments) {
         return;
     }
 
-    if (!dataSocket || !dataSocket->isValid()) {
-        sendResponse("425 Necesita establecer conexión de datos primero");
+    if (!dataSocket || !dataSocket->isValid() || dataSocket->state() != QAbstractSocket::ConnectedState) {
+        emit logMessage(QString("%1 - ERROR: Socket de datos no válido o no conectado. Estado: %2")
+            .arg(clientInfo)
+            .arg(dataSocket ? dataSocket->state() : -1));
+        sendResponse("425 Can't open data connection.");
         return;
     }
 
-    QString fullPath = QDir::cleanPath(rootDir + "/" + currentDir);
+    QString fullPath = QDir::cleanPath(rootDir + currentDir);
     QDir dir(fullPath);
     
-    // Verificar si el directorio está vacío primero
-    if(dir.isEmpty(QDir::NoDotAndDotDot | QDir::AllEntries)) {
-        sendResponse("550 Directorio vacío");
+    emit logMessage(QString("%1 - Intentando listar directorio: %2").arg(clientInfo).arg(fullPath));
+    
+    if (!dir.exists()) {
+        emit logMessage(QString("%1 - ERROR: Directorio no existe: %2").arg(clientInfo).arg(fullPath));
+        sendResponse("550 Directory not found.");
         return;
     }
 
-    // Modificar filtros para incluir archivos ocultos cuando se usa -a
+    // Configurar filtros
     QDir::Filters filters = QDir::AllEntries | QDir::NoDotAndDotDot | QDir::System;
-    if(arguments.toUpper().contains("-A")) {
-        filters |= QDir::Hidden; // Incluir archivos ocultos solo si se solicita
+    if (arguments.contains("-a", Qt::CaseInsensitive)) {
+        filters |= QDir::Hidden;
     }
-
-    dir.setFilter(filters);
-    dir.setSorting(QDir::Name | QDir::IgnoreCase | QDir::DirsFirst);
     
-    // Usar entryList en lugar de entryInfoList para mejor performance
-    QStringList fileNames = dir.entryList();
-    if(fileNames.isEmpty()) {
-        sendResponse("550 Error al listar directorio");
+    QFileInfoList entries = dir.entryInfoList(filters, QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
+    emit logMessage(QString("%1 - Encontrados %2 archivos/directorios").arg(clientInfo).arg(entries.size()));
+
+    if (entries.isEmpty()) {
+        emit logMessage(QString("%1 - Directorio vacío: %2").arg(clientInfo).arg(fullPath));
+        sendResponse("150 Opening data connection.");
+        dataSocket->write("total 0\r\n");
+        dataSocket->waitForBytesWritten(1000);
+        dataSocket->disconnectFromHost();
+        sendResponse("226 Transfer complete.");
         return;
     }
 
-    sendResponse("150 Iniciando transferencia de lista");
-    
-    // Buffer más grande (1MB) y pre-reservado
+    sendResponse("150 Opening data connection.");
     QByteArray buffer;
-    buffer.reserve(1024 * 1024); 
-    
-    // Mejorar formato de lista para compatibilidad
-    const QLocale locale(QLocale::English);
-    const QString dateFormat = "MMM dd hh:mm"; // Formato compatible con Windows
-    
-    for(const QString &fileName : fileNames) {
-        QFileInfo info(dir.filePath(fileName));
+    buffer.reserve(1024 * 1024); // 1MB buffer
+
+    for (const QFileInfo &entry : entries) {
+        QString permissions = entry.isDir() ? "drwxr-xr-x" : "-rw-r--r--";
+        QString owner = entry.owner().isEmpty() ? "ftp" : entry.owner();
+        QString group = entry.group().isEmpty() ? "ftp" : entry.group();
         
-        // Mejorar simulación de permisos UNIX
-        QString permissions = info.isDir() ? "drwxr-xr-x" : "-rw-r--r--";
-        QString line = QString("%1 1 ftp ftp %2 %3 %4\r\n")
+        QString line = QString("%1 1 %2 %3 %4 %5 %6\r\n")
             .arg(permissions)
-            .arg(info.size(), 12)  // Alinear tamaño a 12 dígitos
-            .arg(locale.toString(info.lastModified(), dateFormat))
-            .arg(fileName);
+            .arg(owner)
+            .arg(group)
+            .arg(entry.size(), 12)
+            .arg(entry.lastModified().toString("MMM dd HH:mm"))
+            .arg(entry.fileName());
         
-        // Codificación UTF-8 explícita
-        buffer.append(line.toUtf8() + "\r\n"); 
+        buffer.append(line.toUtf8());
         
-        if(buffer.size() >= 512 * 1024) {
-            if(!sendChunk(buffer)) return;
+        if (buffer.size() >= 512 * 1024) { // Enviar cada 512KB
+            if (!sendChunk(buffer)) {
+                return;
+            }
         }
     }
-    
-    // Asegurar envío final y cierre de conexión
-    if(!buffer.isEmpty() && !sendChunk(buffer)) return;
-    
-    // Cierre explícito de dataSocket después de transferencia
-    if(dataSocket && dataSocket->isOpen()) {
-        dataSocket->disconnectFromHost();
+
+    if (!buffer.isEmpty() && !sendChunk(buffer)) {
+        return;
+    }
+
+    dataSocket->disconnectFromHost();
+    if (dataSocket->state() != QAbstractSocket::UnconnectedState) {
         dataSocket->waitForDisconnected(1000);
     }
-    sendResponse("226 Transfer complete");
+    
+    emit logMessage(QString("%1 - Transferencia de lista completada").arg(clientInfo));
+    sendResponse("226 Transfer complete.");
 }
 
 bool FtpClientHandler::sendChunk(QByteArray &buffer) {
-    if(!dataSocket || !dataSocket->isValid()) {
-        sendResponse("426 Conexión cerrada");
+    if (!dataSocket || !dataSocket->isValid()) {
+        emit logMessage(QString("%1 - Error: Socket de datos no válido").arg(clientInfo));
+        sendResponse("426 Conexión cerrada; transferencia abortada.");
         return false;
     }
-    
-    qint64 bytesWritten = 0;
-    const char* data = buffer.constData();
-    const qint64 totalSize = buffer.size();
-    
-    while(bytesWritten < totalSize) {
-        qint64 result = dataSocket->write(data + bytesWritten, totalSize - bytesWritten);
-        if(result == -1) {
-            sendResponse("451 Error de escritura");
-            return false;
-        }
-        bytesWritten += result;
-        
-        if(!dataSocket->waitForBytesWritten(5000)) {
-            sendResponse("421 Timeout de transferencia");
-            return false;
-        }
+
+    qint64 written = dataSocket->write(buffer);
+    if (written == -1) {
+        emit logMessage(QString("%1 - Error escribiendo datos: %2").arg(clientInfo).arg(dataSocket->errorString()));
+        sendResponse("426 Error en la transferencia de datos.");
+        return false;
     }
+
+    emit logMessage(QString("%1 - Enviados %2 bytes").arg(clientInfo).arg(written));
+    
+    if (!dataSocket->waitForBytesWritten(1000)) {
+        emit logMessage(QString("%1 - Timeout esperando escritura de datos").arg(clientInfo));
+        sendResponse("426 Timeout en la transferencia de datos.");
+        return false;
+    }
+
     buffer.clear();
     return true;
 }
@@ -634,6 +640,13 @@ void FtpClientHandler::handleStor(const QString &fileName) {
                           .arg(clientInfo)
                           .arg(filePath)
                           .arg(file.errorString()));
+            
+            // Verificar espacio en disco
+            QStorageInfo storage(QFileInfo(file.fileName()).absolutePath());
+            emit logMessage(QString("%1 - Espacio en disco: %2 MB disponibles")
+                          .arg(clientInfo)
+                          .arg(storage.bytesAvailable() / (1024.0 * 1024.0), 0, 'f', 2));
+            
             throw std::runtime_error("553 No se pudo crear el archivo: " + file.errorString().toStdString());
         }
 
@@ -958,19 +971,26 @@ void FtpClientHandler::handleCwd(const QString &path) {
         return;
     }
 
-    QString newPath = QDir::cleanPath(currentDir + "/" + path);
-    QString fullPath = rootDir + "/" + newPath;
-    
-    // Verificar si es un archivo o directorio
-    QFileInfo fileInfo(fullPath);
-    if (fileInfo.exists() && fileInfo.isFile()) {
-        emit logMessage(QString("%1 - ERROR: Intento de cambiar a un archivo en lugar de un directorio: %2")
-                      .arg(clientInfo)
-                      .arg(path));
-        sendResponse("550 No es un directorio");
-        return;
+    QString newPath;
+    if (path.startsWith("/")) {
+        // Si es una ruta absoluta, la usamos directamente
+        newPath = QDir::cleanPath(path);
+    } else {
+        // Si es una ruta relativa, la combinamos con el directorio actual
+        newPath = QDir::cleanPath(currentDir + "/" + path);
     }
     
+    // Eliminar cualquier barra inicial duplicada
+    while (newPath.startsWith("//")) {
+        newPath = newPath.mid(1);
+    }
+    
+    // Asegurarse de que siempre empiece con /
+    if (!newPath.startsWith("/")) {
+        newPath = "/" + newPath;
+    }
+    
+    QString fullPath = QDir::cleanPath(rootDir + newPath);
     QDir targetDir(fullPath);
     if(!targetDir.exists()) {
         emit logMessage(QString("%1 - ERROR: El directorio no existe: %2")
@@ -1004,39 +1024,41 @@ void FtpClientHandler::handlePort(const QString &arg) {
     
     QStringList parts = arg.split(',');
     if (parts.size() != 6) {
-        emit logMessage(QString("%1 - ERROR: Formato inválido de comando PORT").arg(clientInfo));
-        sendResponse("500 Invalid PORT command");
+        emit logMessage(QString("%1 - ERROR: Formato PORT inválido").arg(clientInfo));
+        sendResponse("501 Syntax error in parameters or arguments.");
         return;
     }
 
-    QString ip = parts[0] + "." + parts[1] + "." + parts[2] + "." + parts[3];
-    quint16 port = (parts[4].toInt() << 8) + parts[5].toInt();
-    
+    QString ip = QString("%1.%2.%3.%4").arg(parts[0]).arg(parts[1]).arg(parts[2]).arg(parts[3]);
+    int port = (parts[4].toInt() << 8) + parts[5].toInt();
+
     emit logMessage(QString("%1 - Configurando conexión de datos a %2:%3").arg(clientInfo).arg(ip).arg(port));
 
-    // Cerrar socket anterior si existe
     if (dataSocket) {
+        dataSocket->disconnectFromHost();
         if (dataSocket->state() != QAbstractSocket::UnconnectedState) {
-            emit logMessage(QString("%1 - Cerrando conexión de datos anterior").arg(clientInfo));
-            dataSocket->abort();
-            dataSocket->close();
+            dataSocket->waitForDisconnected(1000);
         }
     }
-    
-    // Crear nuevo socket
+
     dataSocket.reset(new QTcpSocket(this));
-    
-    // Conectar señales para monitorear el socket
-    connect(dataSocket.get(), &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
-        emit logMessage(QString("%1 - ERROR en socket de datos: %2").arg(clientInfo).arg(dataSocket->errorString()));
+    connect(dataSocket.get(), &QTcpSocket::connected, [this]() {
+        emit logMessage(QString("%1 - Conexión de datos establecida").arg(clientInfo));
     });
-    
-    // No intentamos conectar aquí, solo guardamos los datos
-    dataConnectionIp = ip;
-    dataConnectionPort = port;
-    
+    connect(dataSocket.get(), &QTcpSocket::errorOccurred, [this](QAbstractSocket::SocketError error) {
+        emit logMessage(QString("%1 - Error en socket de datos: %2").arg(clientInfo).arg(dataSocket->errorString()));
+    });
+
+    dataSocket->connectToHost(ip, port);
+    if (!dataSocket->waitForConnected(5000)) {
+        emit logMessage(QString("%1 - ERROR: No se pudo establecer conexión de datos: %2")
+            .arg(clientInfo).arg(dataSocket->errorString()));
+        sendResponse("425 Can't open data connection.");
+        return;
+    }
+
     emit logMessage(QString("%1 - Datos de conexión PORT guardados correctamente").arg(clientInfo));
-    sendResponse("200 PORT command successful");
+    sendResponse("200 PORT command successful.");
 }
 
 void FtpClientHandler::handleRest(const QString &arg) {
@@ -1225,27 +1247,89 @@ void FtpClientHandler::handleCommand(const std::string& command) {
 }
 
 void FtpClientHandler::handleLIST() {
-    // Implementación alternativa usando opendir y currentDir
-    QString directory = rootDir + "/" + currentDir;
-    DIR* dir = opendir(directory.toStdString().c_str());
+    if (!dataSocket) {
+        emit logMessage(clientInfo + " - Error: No hay socket de datos disponible");
+        sendResponse("425 No se puede establecer la conexión de datos.");
+        return;
+    }
+
+    QString directory = QDir::cleanPath(rootDir + "/" + currentDir);
+    emit logMessage(clientInfo + " - Intentando listar directorio: " + directory);
     
-    if (!dir) {
+    QDir dir(directory);
+    if (!dir.exists()) {
+        emit logMessage(clientInfo + " - Error: El directorio no existe: " + directory);
         sendResponse("550 No se puede listar el directorio.");
         return;
     }
-    
-    std::stringstream fileList;
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            fileList << entry->d_name << "\r\n";
-        }
+
+    // Verificar permisos de lectura
+    QFileInfo dirInfo(directory);
+    if (!dirInfo.isReadable()) {
+        emit logMessage(clientInfo + " - Error: No hay permisos de lectura en: " + directory);
+        sendResponse("550 No hay permisos para listar el directorio.");
+        return;
     }
-    closedir(dir);
+
+    sendResponse("150 Abriendo conexión de datos para listado de directorio.");
+    emit logMessage(clientInfo + " - Iniciando listado de archivos");
+
+    QStringList entries;
+    QFileInfoList fileInfoList = dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot);
     
-    sendResponse("150 Listado de archivos:");
-    sendData(fileList.str());
-    sendResponse("226 Transferencia completada.");
+    emit logMessage(QString("%1 - Encontrados %2 archivos/directorios").arg(clientInfo).arg(fileInfoList.size()));
+
+    for (const QFileInfo &fileInfo : fileInfoList) {
+        QString permissions = fileInfo.isDir() ? "d" : "-";
+        permissions += (fileInfo.permissions() & QFile::ReadOwner) ? "r" : "-";
+        permissions += (fileInfo.permissions() & QFile::WriteOwner) ? "w" : "-";
+        permissions += (fileInfo.permissions() & QFile::ExeOwner) ? "x" : "-";
+        permissions += (fileInfo.permissions() & QFile::ReadGroup) ? "r" : "-";
+        permissions += (fileInfo.permissions() & QFile::WriteGroup) ? "w" : "-";
+        permissions += (fileInfo.permissions() & QFile::ExeGroup) ? "x" : "-";
+        permissions += (fileInfo.permissions() & QFile::ReadOther) ? "r" : "-";
+        permissions += (fileInfo.permissions() & QFile::WriteOther) ? "w" : "-";
+        permissions += (fileInfo.permissions() & QFile::ExeOther) ? "x" : "-";
+
+        QString owner = fileInfo.owner();
+        QString group = fileInfo.group();
+        QString size = QString::number(fileInfo.size());
+        QString date = fileInfo.lastModified().toString("MMM dd hh:mm");
+        QString name = fileInfo.fileName();
+
+        // Formato estándar de FTP LIST
+        QString entry = QString("%1 %2 %3 %4 %5 %6 %7\r\n")
+            .arg(permissions)
+            .arg(1)  // número de enlaces
+            .arg(owner.isEmpty() ? "ftp" : owner)
+            .arg(group.isEmpty() ? "ftp" : group)
+            .arg(size, 8)
+            .arg(date)
+            .arg(name);
+
+        entries.append(entry);
+        emit logMessage(QString("%1 - Agregando archivo: %2").arg(clientInfo).arg(name));
+    }
+
+    if (dataSocket->state() == QAbstractSocket::ConnectedState) {
+        QByteArray data = entries.join("").toUtf8();
+        emit logMessage(QString("%1 - Enviando %2 bytes de datos").arg(clientInfo).arg(data.size()));
+        
+        qint64 written = dataSocket->write(data);
+        if (written == -1) {
+            emit logMessage(clientInfo + " - Error al escribir en el socket de datos");
+            sendResponse("426 Error en la transferencia de datos.");
+        } else {
+            emit logMessage(QString("%1 - Escritos %2 bytes en el socket").arg(clientInfo).arg(written));
+            dataSocket->flush();
+            dataSocket->waitForBytesWritten(1000);  // Esperar hasta 1 segundo para que se envíen los datos
+            dataSocket->close();
+            sendResponse("226 Transferencia completada.");
+        }
+    } else {
+        emit logMessage(clientInfo + " - Error: Socket de datos no conectado");
+        sendResponse("425 No se puede abrir la conexión de datos.");
+    }
 }
 
 void FtpClientHandler::sendData(const std::string& data) {
@@ -1284,7 +1368,7 @@ void FtpClientHandler::forceDisconnect() {
         socket->deleteLater();
         socket = nullptr;
     }
-    
+
     emit logMessage(QString("%1 - Cliente desconectado forzosamente").arg(clientInfo));
     emit connectionClosed();
     emit finished();
