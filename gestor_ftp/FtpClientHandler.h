@@ -2,6 +2,7 @@
 #define FTPCLIENTHANDLER_H
 
 #include <QTcpSocket>
+#include <QTcpServer>
 #include <QFile>
 #include <QDir>
 #include <QDebug>
@@ -84,6 +85,8 @@ private:
     // Variables para la conexión de datos
     QString dataConnectionIp;
     quint16 dataConnectionPort = 0;
+    bool isPassiveMode = false;
+    QTcpServer* passiveServer = nullptr;
 
     bool sendChunk(QByteArray &buffer);
 
@@ -98,6 +101,8 @@ private:
     void handleUser(const QString &username);
 
     void handlePass(const QString &password);
+
+    void handlePasv();  // Añadir declaración del método PASV
 
     void handleList(const QString &arguments = "");
 
