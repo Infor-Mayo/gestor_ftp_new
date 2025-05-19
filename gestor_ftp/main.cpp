@@ -52,7 +52,14 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
 
     // Emitir el mensaje para la interfaz
     if (Logger::instance().parent()) {
-        emit Logger::instance().newLogMessage(txt);
+        // Determinar el nivel de log basado en el tipo de mensaje
+        LogLevel level = LogLevel::INFO; // Por defecto
+        if (type == QtDebugMsg) level = LogLevel::DEBUG;
+        else if (type == QtWarningMsg) level = LogLevel::WARNING;
+        else if (type == QtCriticalMsg) level = LogLevel::ERROR;
+        else if (type == QtFatalMsg) level = LogLevel::CRITICAL;
+        
+        emit Logger::instance().newLogMessage(txt, level);
     }
 
     // También mostrar en la consola de debug

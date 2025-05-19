@@ -5,6 +5,14 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
 
+# Verificar si el módulo SSL está disponible
+qtHaveModule(ssl) {
+    QT += ssl
+    DEFINES += HAVE_SSL
+} else {
+    message("SSL module not available. Building without SSL support.")
+}
+
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
@@ -16,7 +24,8 @@ SOURCES += \
     gestor.cpp \
     Logger.cpp \
     DatabaseManager.cpp \
-    FtpClientHandler.cpp
+    FtpClientHandler.cpp \
+    ErrorHandler.cpp
 
 HEADERS += \
     FtpClientHandler.h \
@@ -24,7 +33,8 @@ HEADERS += \
     FtpServerThread.h \
     gestor.h \
     Logger.h \
-    DatabaseManager.h
+    DatabaseManager.h \
+    ErrorHandler.h
 
 FORMS += \
     gestor.ui

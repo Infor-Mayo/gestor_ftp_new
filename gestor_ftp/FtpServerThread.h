@@ -16,6 +16,10 @@ public:
     int getActiveConnections() const {
         return server ? FtpServer::getActiveConnections() : 0;
     }
+    
+    int getActiveTransfers() const {
+        return server ? server->getActiveTransfers() : 0;
+    }
 
     void setMaxConnections(int max) {
         if (server) FtpServer::setMaxConnections(max);

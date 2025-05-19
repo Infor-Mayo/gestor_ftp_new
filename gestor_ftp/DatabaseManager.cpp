@@ -202,3 +202,45 @@ bool DatabaseManager::updateUser(const QString &username, const QString &newPass
     qDebug() << "Usuario actualizado:" << username;
     return true;
 }
+
+bool DatabaseManager::reconnect() {
+    QMutexLocker lock(&dbMutex);
+    
+    // Registrar intento de reconexión
+    qDebug() << "Intentando reconectar a la base de datos...";
+    
+    // Cerrar la conexión existente si está abierta
+    if (db.isOpen()) {
+        db.close();
+    }
+    
+    // Eliminar la conexión existente
+    if (QSqlDatabase::contains("main_connection")) {
+        QSqlDatabase::removeDatabase("main_connection");
+    }
+    
+    // Crear una nueva conexión
+    db = QSqlDatabase::addDatabase("QSQLITE", "main_connection");
+    db.setDatabaseName(dbPath);
+    
+    // Intentar abrir la conexión
+    if (!db.open()) {
+        qWarning() << "Error al reconectar a la base de datos:" << db.lastError().text();
+        return false;
+    }
+    
+    // Configurar parámetros SQLite
+    QSqlQuery query(db);
+    query.exec("PRAGMA journal_mode = WAL");
+    query.exec("PRAGMA synchronous = NORMAL");
+    query.exec("PRAGMA foreign_keys = ON");
+    
+    // Verificar que la conexión funciona
+    if (!query.exec("SELECT 1 FROM sqlite_master")) {
+        qWarning() << "Falló la prueba de conexión después de reconectar:" << query.lastError().text();
+        return false;
+    }
+    
+    qDebug() << "Reconexión a la base de datos exitosa";
+    return true;
+}

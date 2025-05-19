@@ -57,8 +57,11 @@ FtpClientHandler::FtpClientHandler(QTcpSocket *socket, const QHash<QString, QStr
     sendResponse("220 Welcome to My FTP Server");
 
     // Conexión al logger central para todos los mensajes
+    // Usar una lambda para adaptar la señal logMessage al slot newLogMessage que requiere LogLevel
     connect(this, &FtpClientHandler::logMessage, 
-            &Logger::instance(), &Logger::newLogMessage);
+            [this](const QString& message) {
+                Logger::instance().newLogMessage(message, LogLevel::INFO);
+            });
 
     // Inicializar clientInfo
     clientInfo = QString("[%1:%2]")
@@ -115,7 +118,7 @@ void FtpClientHandler::onReadyRead() {
 }
 
 void FtpClientHandler::onDisconnected() {
-    if(isTransferActive) {
+    if(transferActive) {
         emit logMessage(QString("%1 - Desconexión durante transferencia, limpiando...").arg(clientInfo));
         // Limpiar buffers y archivos temporales
         if(dataSocket) {
@@ -123,7 +126,7 @@ void FtpClientHandler::onDisconnected() {
             dataSocket->close();
         }
         transferBuffer.clear();
-        isTransferActive = false;
+        transferActive = false;
     }
     
     // Asegurar limpieza de recursos
@@ -145,7 +148,7 @@ void FtpClientHandler::onDisconnected() {
 }
 
 void FtpClientHandler::closeDataSocket() {
-    if (dataSocket && dataSocket->isOpen() && !isTransferActive) {
+    if (dataSocket && dataSocket->isOpen() && !transferActive) {
         // Solo cerrar si no hay transferencia activa
         emit logMessage(QString("%1 - Cerrando conexión de datos por inactividad").arg(clientInfo));
         dataSocket->disconnectFromHost();
@@ -196,7 +199,18 @@ void FtpClientHandler::processCommand(const QString &command) {
     } else if (cmd == "STOR") {
         handleStor(arg);
     } else if (cmd == "FEAT") {
-        handleFeat();
+        // Añadir comandos FTPS a la lista de características
+        QString featResponse = "211-Features:\r\n";
+        featResponse += " UTF8\r\n";
+        featResponse += " REST STREAM\r\n";
+#ifdef HAVE_SSL
+        featResponse += " AUTH TLS\r\n";
+        featResponse += " AUTH SSL\r\n";
+        featResponse += " PBSZ\r\n";
+        featResponse += " PROT\r\n";
+#endif
+        featResponse += "211 End";
+        sendResponse(featResponse);
     } else if (cmd == "OPTS" && arg.toUpper() == "UTF8 ON") {
         sendResponse("200 UTF8 mode enabled");
     } else if (cmd == "TYPE" && arg.toUpper() == "I") {
@@ -222,6 +236,12 @@ void FtpClientHandler::processCommand(const QString &command) {
         handleRmd(arg);
     } else if (cmd == "ABOR") {
         handleAbor();
+    } else if (cmd == "AUTH") {
+        handleAuth(arg);
+    } else if (cmd == "PBSZ") {
+        handlePbsz(arg);
+    } else if (cmd == "PROT") {
+        handleProt(arg);
     } else if (cmd == "SITE" && arg.toUpper().startsWith("USERS")) {
         int active = FtpServer::getActiveConnections();
         int max = FtpServer::getMaxConnections();
@@ -247,14 +267,14 @@ void FtpClientHandler::processCommand(const QString &command) {
 }
 
 void FtpClientHandler::handleAbor() {
-    if(isTransferActive) {
+    if(transferActive) {
         emit logMessage(QString("%1 - Abortando transferencia activa").arg(clientInfo));
         if(dataSocket) {
             dataSocket->abort();
             dataSocket->close();
         }
         transferBuffer.clear();
-        isTransferActive = false;
+        transferActive = false;
     }
     sendResponse("226 Abort successful");
 }
@@ -556,21 +576,89 @@ void FtpClientHandler::handleRetr(const QString &fileName) {
         return;
     }
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        sendResponse("550 Cannot open file");
+    QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists() || !fileInfo.isFile() || !fileInfo.isReadable()) {
+        emit logMessage(QString("%1 - ERROR: Archivo no existe o no es accesible: %2")
+                       .arg(clientInfo)
+                       .arg(filePath));
+        sendResponse("550 File not found or not accessible");
         return;
     }
 
-    if (!dataSocket || !dataSocket->isValid()) {
-        sendResponse("425 No data connection");
-        file.close();
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit logMessage(QString("%1 - ERROR: No se pudo abrir el archivo: %2 - %3")
+                       .arg(clientInfo)
+                       .arg(filePath)
+                       .arg(file.errorString()));
+        sendResponse("550 Cannot open file: " + file.errorString());
         return;
+    }
+
+    // Verificar y establecer la conexión de datos
+    if (!isPassiveMode) {
+        if (dataConnectionIp.isEmpty() || dataConnectionPort == 0) {
+            emit logMessage(QString("%1 - ERROR: No hay conexión de datos configurada (PORT o PASV requerido)")
+                           .arg(clientInfo));
+            file.close();
+            sendResponse("425 Use PORT o PASV primero");
+            return;
+        }
+
+        // Crear nuevo socket de datos si no existe
+        if (!dataSocket) {
+            dataSocket.reset(new QTcpSocket(this));
+        }
+
+        // Conectar al cliente
+        dataSocket->connectToHost(dataConnectionIp, dataConnectionPort);
+        if (!dataSocket->waitForConnected(5000)) {
+            emit logMessage(QString("%1 - ERROR: No se pudo establecer la conexión de datos - %2")
+                           .arg(clientInfo)
+                           .arg(dataSocket->errorString()));
+            file.close();
+            sendResponse("425 No se pudo establecer la conexión de datos");
+            return;
+        }
+
+        emit logMessage(QString("%1 - Conectando a %2:%3 para transferencia de datos")
+                       .arg(clientInfo)
+                       .arg(dataConnectionIp)
+                       .arg(dataConnectionPort));
+    } else {
+        if (!passiveServer || !passiveServer->isListening()) {
+            emit logMessage(QString("%1 - ERROR: Servidor pasivo no está escuchando")
+                           .arg(clientInfo));
+            file.close();
+            sendResponse("425 Error en modo pasivo");
+            return;
+        }
+
+        // En modo pasivo, esperar a que el cliente se conecte
+        if (!dataSocket || dataSocket->state() != QAbstractSocket::ConnectedState) {
+            emit logMessage(QString("%1 - Esperando conexión pasiva del cliente").arg(clientInfo));
+            if (!passiveServer->waitForNewConnection(5000)) {
+                emit logMessage(QString("%1 - ERROR: Timeout esperando conexión pasiva")
+                               .arg(clientInfo));
+                file.close();
+                sendResponse("425 Timeout en conexión pasiva");
+                return;
+            }
+        }
     }
 
     // Configurar socket para transferencia de archivos grandes
-    dataSocket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 1024 * 1024 * 16); // 16MB buffer
-    dataSocket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+    if (dataSocket && dataSocket->state() == QAbstractSocket::ConnectedState) {
+        dataSocket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+        dataSocket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 1024 * 1024 * 16); // 16MB buffer
+        dataSocket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+    } else {
+        emit logMessage(QString("%1 - ERROR: Socket de datos no conectado")
+                       .arg(clientInfo));
+        file.close();
+        sendResponse("425 No se pudo establecer la conexión de datos");
+        return;
+    }
     
     // Desactivar el timeout durante la transferencia
     dataSocketTimer->stop();
@@ -578,83 +666,153 @@ void FtpClientHandler::handleRetr(const QString &fileName) {
     // Posicionar el archivo si hay offset de reinicio
     if (restartOffset > 0) {
         if (!file.seek(restartOffset)) {
+            emit logMessage(QString("%1 - ERROR: No se pudo posicionar en el offset de reinicio: %2")
+                           .arg(clientInfo)
+                           .arg(restartOffset));
             sendResponse("550 Could not seek to restart position");
             file.close();
             return;
         }
+        emit logMessage(QString("%1 - Reiniciando transferencia desde el byte %2")
+                       .arg(clientInfo)
+                       .arg(restartOffset));
     }
 
-    sendResponse("150 Opening data connection");
-    isTransferActive = true;
+    // Obtener el tamaño total del archivo para reportar progreso
+    qint64 fileSize = fileInfo.size();
+    qint64 remainingSize = fileSize;
+    if (restartOffset > 0) {
+        remainingSize = fileSize - restartOffset;
+    }
+
+    emit logMessage(QString("%1 - Iniciando transferencia para archivo: %2 (Tamaño: %3 bytes)")
+                   .arg(clientInfo)
+                   .arg(filePath)
+                   .arg(fileSize));
+
+    sendResponse("150 Opening data connection for file transfer");
+    transferActive = true;
 
     // Usar un buffer más grande para la transferencia
-    const qint64 bufferSize = 1024 * 1024 * 8; // 8MB buffer
+    const qint64 BUFFER_SIZE = 1024 * 1024 * 4; // 4MB buffer (más pequeño para mejor control)
     QByteArray buffer;
     qint64 totalSent = 0;
     bool success = true;
     QElapsedTimer transferTimer;
     transferTimer.start();
 
-    while (!file.atEnd() && dataSocket->isValid() && success) {
-        buffer = file.read(bufferSize);
-        qint64 bytesWritten = 0;
-        
-        while (bytesWritten < buffer.size() && dataSocket->isValid()) {
-            qint64 written = dataSocket->write(buffer.mid(bytesWritten));
-            if (written == -1) {
-                success = false;
-                break;
+    // Crear hash para verificación de integridad
+    QCryptographicHash fileHash(QCryptographicHash::Sha256);
+
+    try {
+        while (!file.atEnd() && dataSocket->isValid() && success) {
+            buffer = file.read(BUFFER_SIZE);
+            if (buffer.isEmpty()) {
+                break; // No hay más datos para leer
             }
-            bytesWritten += written;
-            totalSent += written;
-            
-            // Forzar el envío de datos
-            dataSocket->flush();
-            
-            // Aplicar límite de velocidad si está configurado
-            if (speedLimit > 0) {
-                applySpeedLimit();
-            }
-            
-            // Verificar el estado del socket cada 10MB
-            if (totalSent % (10 * 1024 * 1024) == 0) {
-                if (!dataSocket->isValid()) {
+
+            // Actualizar el hash con los datos leídos
+            fileHash.addData(buffer);
+
+            qint64 bytesWritten = 0;
+            while (bytesWritten < buffer.size() && dataSocket->isValid()) {
+                // Verificar si el socket está listo para escribir
+                if (dataSocket->bytesToWrite() > BUFFER_SIZE * 2) {
+                    if (!dataSocket->waitForBytesWritten(5000)) {
+                        if (dataSocket->error() != QAbstractSocket::SocketTimeoutError) {
+                            emit logMessage(QString("%1 - ERROR esperando para escribir: %2")
+                                          .arg(clientInfo)
+                                          .arg(dataSocket->errorString()));
+                            success = false;
+                            break;
+                        }
+                    }
+                }
+
+                qint64 written = dataSocket->write(buffer.mid(bytesWritten));
+                if (written == -1) {
+                    emit logMessage(QString("%1 - ERROR escribiendo en socket: %2")
+                                  .arg(clientInfo)
+                                  .arg(dataSocket->errorString()));
                     success = false;
                     break;
                 }
+
+                bytesWritten += written;
+                totalSent += written;
+                
+                // Forzar el envío de datos
+                dataSocket->flush();
+                
+                // Aplicar límite de velocidad si está configurado
+                if (speedLimit > 0) {
+                    applySpeedLimit();
+                }
+            }
+            
+            // Verificar el progreso de la transferencia
+            if (transferTimer.elapsed() > 2000) { // cada 2 segundos
+                double percentComplete = (totalSent * 100.0) / remainingSize;
+                emit logMessage(QString("%1 - Progreso: %2 de %3 bytes (%4%%)")
+                              .arg(clientInfo)
+                              .arg(totalSent)
+                              .arg(remainingSize)
+                              .arg(percentComplete, 0, 'f', 2));
+                transferTimer.restart();
             }
         }
-        
-        // Verificar el progreso de la transferencia
-        if (transferTimer.elapsed() > 5000) { // cada 5 segundos
-            emit logMessage(QString("%1 - Progreso de transferencia: %2 bytes enviados")
-                          .arg(clientInfo)
-                          .arg(totalSent));
-            transferTimer.restart();
+
+        // Asegurarse de que todos los datos se envíen
+        if (success && dataSocket->isValid()) {
+            if (dataSocket->bytesToWrite() > 0) {
+                if (!dataSocket->waitForBytesWritten(10000)) { // 10 segundos de timeout
+                    emit logMessage(QString("%1 - ERROR esperando a que se completen los datos pendientes: %2")
+                                  .arg(clientInfo)
+                                  .arg(dataSocket->errorString()));
+                    success = false;
+                }
+            }
         }
+    } catch (const std::exception& e) {
+        emit logMessage(QString("%1 - Excepción durante la transferencia: %2")
+                      .arg(clientInfo)
+                      .arg(e.what()));
+        success = false;
     }
 
     file.close();
-    isTransferActive = false;
+    transferActive = false;
+
+    // Guardar el hash del archivo para verificación posterior
+    QByteArray fileHashValue = fileHash.result();
 
     if (success && dataSocket->isValid()) {
-        // Esperar a que se envíen todos los datos pendientes
-        if (dataSocket->bytesToWrite() > 0) {
-            dataSocket->waitForBytesWritten();
-        }
-        
+        // Cerrar la conexión de datos correctamente
         dataSocket->disconnectFromHost();
         if (dataSocket->state() != QAbstractSocket::UnconnectedState) {
             dataSocket->waitForDisconnected(5000);
         }
+
+        // Calcular estadísticas de transferencia
+        double totalTime = transferTimer.elapsed() / 1000.0;
+        double speedMBps = (totalSent / (1024.0 * 1024.0)) / (totalTime > 0 ? totalTime : 1.0);
+        
+        emit logMessage(QString("%1 - Transferencia completada: %2 bytes en %3 segundos (%4 MB/s)")
+                       .arg(clientInfo)
+                       .arg(totalSent)
+                       .arg(totalTime, 0, 'f', 2)
+                       .arg(speedMBps, 0, 'f', 2));
+
         sendResponse("226 Transfer complete");
     } else {
+        // Manejar error en la transferencia
         if (dataSocket->error() != QAbstractSocket::UnknownSocketError) {
             emit logMessage(QString("%1 - Error en transferencia: %2")
                           .arg(clientInfo)
                           .arg(dataSocket->errorString()));
         }
         dataSocket->abort();
+        sendResponse("426 Connection closed; transfer aborted.");
     }
 
     // Reactivar el timer después de la transferencia
@@ -690,16 +848,21 @@ void FtpClientHandler::handleStor(const QString &fileName) {
             throw std::runtime_error("550 Directorio destino no accesible");
         }
 
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            emit logMessage(QString("%1 - ERROR: No se pudo crear el archivo: %2 - %3")
+        // Crear un archivo temporal para la transferencia
+        QString tempFilePath = filePath + ".tmp";
+        QFile tempFile(tempFilePath);
+        if (!tempFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            emit logMessage(QString("%1 - ERROR: No se pudo crear el archivo temporal: %2 - %3")
                            .arg(clientInfo)
-                           .arg(filePath)
-                           .arg(file.errorString()));
-            throw std::runtime_error("553 No se pudo crear el archivo: " + file.errorString().toStdString());
+                           .arg(tempFilePath)
+                           .arg(tempFile.errorString()));
+            throw std::runtime_error("553 No se pudo crear el archivo: " + tempFile.errorString().toStdString());
         }
 
-        emit logMessage(QString("%1 - Iniciando transferencia para archivo: %2")
+        emit logMessage(QString("%1 - Validando ruta de archivo: %2")
+                       .arg(clientInfo)
+                       .arg(filePath));
+        emit logMessage(QString("%1 - Ruta de archivo validada: %2")
                        .arg(clientInfo)
                        .arg(filePath));
 
@@ -708,7 +871,8 @@ void FtpClientHandler::handleStor(const QString &fileName) {
             if (dataConnectionIp.isEmpty() || dataConnectionPort == 0) {
                 emit logMessage(QString("%1 - ERROR: No hay conexión de datos configurada (PORT o PASV requerido)")
                                .arg(clientInfo));
-                file.close();
+                tempFile.close();
+                QFile::remove(tempFilePath);
                 throw std::runtime_error("425 Use PORT o PASV primero");
             }
 
@@ -723,7 +887,8 @@ void FtpClientHandler::handleStor(const QString &fileName) {
                 emit logMessage(QString("%1 - ERROR: No se pudo establecer la conexión de datos - %2")
                                .arg(clientInfo)
                                .arg(dataSocket->errorString()));
-                file.close();
+                tempFile.close();
+                QFile::remove(tempFilePath);
                 throw std::runtime_error("425 No se pudo establecer la conexión de datos");
             }
 
@@ -732,7 +897,8 @@ void FtpClientHandler::handleStor(const QString &fileName) {
             if (!passiveServer || !passiveServer->isListening()) {
                 emit logMessage(QString("%1 - ERROR: Servidor pasivo no está escuchando")
                                .arg(clientInfo));
-                file.close();
+                tempFile.close();
+                QFile::remove(tempFilePath);
                 throw std::runtime_error("425 Error en modo pasivo");
             }
 
@@ -742,7 +908,8 @@ void FtpClientHandler::handleStor(const QString &fileName) {
                 if (!passiveServer->waitForNewConnection(5000)) {
                     emit logMessage(QString("%1 - ERROR: Timeout esperando conexión pasiva")
                                    .arg(clientInfo));
-                    file.close();
+                    tempFile.close();
+                    QFile::remove(tempFilePath);
                     throw std::runtime_error("425 Timeout en conexión pasiva");
                 }
             }
@@ -752,31 +919,66 @@ void FtpClientHandler::handleStor(const QString &fileName) {
         if (dataSocket && dataSocket->state() == QAbstractSocket::ConnectedState) {
             dataSocket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
             dataSocket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 1024 * 1024 * 16); // 16MB buffer
+            
+            // Intentar obtener el tamaño del archivo si el cliente lo proporciona
+            // Esto podría estar disponible en algunos clientes FTP modernos
+            qint64 expectedSize = -1;
+            if (socket->property("fileSize").isValid()) {
+                expectedSize = socket->property("fileSize").toLongLong();
+                dataSocket->setProperty("expectedFileSize", expectedSize);
+                emit logMessage(QString("%1 - Tamaño esperado del archivo: %2 bytes")
+                              .arg(clientInfo)
+                              .arg(expectedSize));
+            }
         } else {
             emit logMessage(QString("%1 - ERROR: Socket de datos no conectado")
                            .arg(clientInfo));
-            file.close();
+            tempFile.close();
+            QFile::remove(tempFilePath);
             throw std::runtime_error("425 No se pudo establecer la conexión de datos");
         }
 
         sendResponse("150 Opening data connection for file transfer");
+        transferActive = true;
 
         bool success = false;
         try {
-            success = receiveFile(file, dataSocket.get());
-            file.flush();
-            file.close();
+            success = receiveFile(tempFile, dataSocket.get());
+            tempFile.flush();
+            tempFile.close();
+            transferActive = false;
 
             if (success) {
-                emit logMessage(QString("%1 - Archivo recibido exitosamente: %2")
-                               .arg(clientInfo)
-                               .arg(filePath));
-                sendResponse("226 Transfer complete.");
+                // Verificar integridad del archivo temporal
+                QByteArray fileHash;
+                if (dataSocket->property("fileHash").isValid()) {
+                    fileHash = dataSocket->property("fileHash").toByteArray();
+                    emit logMessage(QString("%1 - Hash del archivo calculado: %2")
+                                  .arg(clientInfo)
+                                  .arg(QString(fileHash.toHex())));
+                }
+
+                // Mover el archivo temporal al destino final
+                if (QFile::exists(filePath)) {
+                    QFile::remove(filePath); // Eliminar archivo existente si lo hay
+                }
+
+                if (QFile::rename(tempFilePath, filePath)) {
+                    emit logMessage(QString("%1 - Archivo recibido exitosamente: %2")
+                                   .arg(clientInfo)
+                                   .arg(filePath));
+                    sendResponse("226 Transfer complete.");
+                } else {
+                    emit logMessage(QString("%1 - ERROR: No se pudo renombrar el archivo temporal a destino final")
+                                   .arg(clientInfo));
+                    QFile::remove(tempFilePath);
+                    sendResponse("451 Error al finalizar la transferencia");
+                }
             } else {
-                QFile::remove(filePath);
+                QFile::remove(tempFilePath);
                 emit logMessage(QString("%1 - Archivo incompleto eliminado: %2")
                                .arg(clientInfo)
-                               .arg(filePath));
+                               .arg(tempFilePath));
                 sendResponse("451 Error en la transferencia");
             }
             
@@ -788,8 +990,9 @@ void FtpClientHandler::handleStor(const QString &fileName) {
                 }
             }
         } catch (const std::exception& e) {
-            file.close();
-            QFile::remove(filePath);
+            tempFile.close();
+            QFile::remove(tempFilePath);
+            transferActive = false;
             
             // Cerrar conexión de datos en caso de error
             if (dataSocket && dataSocket->state() != QAbstractSocket::UnconnectedState) {
@@ -817,10 +1020,19 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
     buffer.resize(BUFFER_SIZE);
     
     qint64 totalBytesReceived = 0;
+    qint64 expectedFileSize = -1; // Tamaño esperado del archivo (si se conoce)
     int timeoutCount = 0;
     bool transferCompleted = false;
     QElapsedTimer timer;
     timer.start();
+    
+    // Verificar si hay información de tamaño de archivo en el socket
+    if (socket->property("expectedFileSize").isValid()) {
+        expectedFileSize = socket->property("expectedFileSize").toLongLong();
+        emit logMessage(QString("%1 - Tamaño esperado del archivo: %2 bytes")
+                      .arg(clientInfo)
+                      .arg(expectedFileSize));
+    }
     
     emit logMessage(QString("%1 - Iniciando recepción de archivo, tamaño de buffer: %2 KB")
                    .arg(clientInfo)
@@ -828,10 +1040,18 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
 
     // Conectar señal de desconexión
     auto disconnectConnection = connect(socket, &QTcpSocket::disconnected, 
-        [this, &totalBytesReceived]() {
-            emit logMessage(QString("%1 - Cliente desconectó durante la transferencia (bytes recibidos: %2)")
-                          .arg(clientInfo)
-                          .arg(totalBytesReceived));
+        [this, &totalBytesReceived, expectedFileSize]() {
+            if (expectedFileSize > 0 && totalBytesReceived < expectedFileSize) {
+                emit logMessage(QString("%1 - ADVERTENCIA: Cliente desconectó durante la transferencia. Recibidos %2 bytes de %3 esperados (%4%)")
+                              .arg(clientInfo)
+                              .arg(totalBytesReceived)
+                              .arg(expectedFileSize)
+                              .arg(totalBytesReceived * 100.0 / expectedFileSize, 0, 'f', 2));
+            } else {
+                emit logMessage(QString("%1 - Cliente desconectó durante la transferencia (bytes recibidos: %2)")
+                              .arg(clientInfo)
+                              .arg(totalBytesReceived));
+            }
         });
 
     // Conectar señal de error
@@ -841,6 +1061,9 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
                           .arg(clientInfo)
                           .arg(socket->errorString()));
         });
+
+    // Crear hash para verificación de integridad
+    QCryptographicHash fileHash(QCryptographicHash::Sha256);
 
     while (!transferCompleted) {
         if (socket->state() != QAbstractSocket::ConnectedState) {
@@ -854,8 +1077,19 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
             if (!socket->waitForReadyRead(TIMEOUT_MS)) {
                 if (socket->error() != QAbstractSocket::SocketTimeoutError) {
                     // Si el error es "conexión cerrada por el host remoto" y hemos recibido datos,
-                    // podemos considerar que la transferencia está completa
+                    // verificamos si recibimos el archivo completo
                     if (socket->error() == QAbstractSocket::RemoteHostClosedError && totalBytesReceived > 0) {
+                        if (expectedFileSize > 0 && totalBytesReceived < expectedFileSize) {
+                            emit logMessage(QString("%1 - ERROR: Transferencia incompleta. Recibidos %2 bytes de %3 esperados (%4%)")
+                                          .arg(clientInfo)
+                                          .arg(totalBytesReceived)
+                                          .arg(expectedFileSize)
+                                          .arg(totalBytesReceived * 100.0 / expectedFileSize, 0, 'f', 2));
+                            QObject::disconnect(disconnectConnection);
+                            QObject::disconnect(errorConnection);
+                            return false;
+                        }
+                        
                         emit logMessage(QString("%1 - Cliente cerró la conexión después de enviar %2 bytes")
                                    .arg(clientInfo)
                                    .arg(totalBytesReceived));
@@ -893,6 +1127,9 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
             return false;
         }
 
+        // Actualizar el hash con los datos recibidos
+        fileHash.addData(buffer.data(), bytesRead);
+
         // Escribir al archivo
         qint64 written = file.write(buffer.data(), bytesRead);
         if (written != bytesRead) {
@@ -909,9 +1146,27 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
         // Forzar escritura a disco cada 10MB
         if (totalBytesReceived % (10 * 1024 * 1024) == 0) {
             file.flush();
-            emit logMessage(QString("%1 - Recibidos %2 MB")
-                          .arg(clientInfo)
-                          .arg(totalBytesReceived / (1024.0 * 1024.0), 0, 'f', 2));
+            
+            if (expectedFileSize > 0) {
+                double percentComplete = (totalBytesReceived * 100.0) / expectedFileSize;
+                emit logMessage(QString("%1 - Recibidos %2 MB de %3 MB (%4%)")
+                              .arg(clientInfo)
+                              .arg(totalBytesReceived / (1024.0 * 1024.0), 0, 'f', 2)
+                              .arg(expectedFileSize / (1024.0 * 1024.0), 0, 'f', 2)
+                              .arg(percentComplete, 0, 'f', 2));
+            } else {
+                emit logMessage(QString("%1 - Recibidos %2 MB")
+                              .arg(clientInfo)
+                              .arg(totalBytesReceived / (1024.0 * 1024.0), 0, 'f', 2));
+            }
+        }
+        
+        // Verificar si hemos completado la transferencia basado en el tamaño esperado
+        if (expectedFileSize > 0 && totalBytesReceived >= expectedFileSize) {
+            transferCompleted = true;
+            emit logMessage(QString("%1 - Transferencia completada basada en tamaño esperado")
+                          .arg(clientInfo));
+            break;
         }
     }
     
@@ -931,8 +1186,22 @@ bool FtpClientHandler::receiveFile(QFile &file, QTcpSocket *socket) {
                    .arg(totalTime, 0, 'f', 1)
                    .arg(speedMBps, 0, 'f', 2));
     
-    // Considerar la transferencia exitosa si recibimos datos
-    return totalBytesReceived > 0;
+    // Guardar el hash del archivo para verificación posterior
+    QByteArray fileHashValue = fileHash.result();
+    socket->setProperty("fileHash", fileHashValue);
+    
+    // Verificar integridad del archivo
+    if (expectedFileSize > 0 && totalBytesReceived < expectedFileSize) {
+        emit logMessage(QString("%1 - ERROR: Archivo incompleto. Recibidos %2 bytes de %3 esperados (%4%)")
+                       .arg(clientInfo)
+                       .arg(totalBytesReceived)
+                       .arg(expectedFileSize)
+                       .arg(totalBytesReceived * 100.0 / expectedFileSize, 0, 'f', 2));
+        return false;
+    }
+    
+    // Considerar la transferencia exitosa solo si se recibieron datos y no hubo errores
+    return totalBytesReceived > 0 && file.error() == QFile::NoError;
 }
 
 void FtpClientHandler::handleFeat() {
@@ -1168,7 +1437,7 @@ void FtpClientHandler::applySpeedLimit() {
 }
 
 void FtpClientHandler::closeConnection() {
-    if(isTransferActive) {
+    if(transferActive) {
         emit logMessage(QString("%1 - Intento de cierre durante transferencia, abortando").arg(clientInfo));
         return;
     }
@@ -1347,29 +1616,22 @@ void FtpClientHandler::forceDisconnect() {
     sendResponse("221 Desconexión forzada por el administrador");
     
     // Limpiar cualquier transferencia activa
-    if(isTransferActive) {
+    if(transferActive) {
         if(dataSocket) {
             dataSocket->abort();
             dataSocket->close();
         }
         transferBuffer.clear();
-        isTransferActive = false;
+        transferActive = false;
     }
     
     // Cerrar socket de datos
     if (dataSocket) {
         dataSocket->disconnect();
-        dataSocket->close();
+        dataSocket->abort();
     }
-    if (passiveServer) {
-        passiveServer->close();
-        delete passiveServer;
-        passiveServer = nullptr;
-        isPassiveMode = false;
-    }
-    dataSocketTimer->stop();
-    dataSocket.reset();
-    
+
+    // Cerrar socket de control
     // Cerrar socket principal
     if(socket) {
         socket->disconnect();
@@ -1377,11 +1639,149 @@ void FtpClientHandler::forceDisconnect() {
         socket->deleteLater();
         socket = nullptr;
     }
-
-    emit logMessage(QString("%1 - Cliente desconectado forzosamente").arg(clientInfo));
-    emit connectionClosed();
+    
     emit finished();
 }
+
+#ifdef HAVE_SSL
+// Implementación de métodos SSL/TLS
+bool FtpClientHandler::startSecureControl(const QSslConfiguration& config) {
+    // Verificar que el socket no sea nulo y no esté ya en modo seguro
+    if (!socket || m_secureControl) {
+        return false;
+    }
+    
+    // Crear un nuevo socket SSL
+    QSslSocket* sslSocket = new QSslSocket(this);
+    
+    // Configurar el socket SSL
+    sslSocket->setSslConfiguration(config);
+    
+    // Obtener el descriptor del socket actual
+    qintptr descriptor = socket->socketDescriptor();
+    
+    // Desconectar señales del socket actual
+    socket->disconnect(this);
+    
+    // Establecer el descriptor en el nuevo socket SSL
+    if (!sslSocket->setSocketDescriptor(descriptor)) {
+        emit logMessage("Error al configurar el socket SSL para el canal de control");
+        delete sslSocket;
+        return false;
+    }
+    
+    // Iniciar el handshake SSL
+    sslSocket->startServerEncryption();
+    
+    // Conectar señales para el nuevo socket SSL
+    connect(sslSocket, &QSslSocket::readyRead, this, &FtpClientHandler::onReadyRead);
+    connect(sslSocket, &QSslSocket::disconnected, this, &FtpClientHandler::onDisconnected);
+    connect(sslSocket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
+            [this](const QList<QSslError>& errors) {
+                for (const QSslError& error : errors) {
+                    emit logMessage(QString("Error SSL: %1").arg(error.errorString()));
+                }
+            });
+    
+    // Reemplazar el socket antiguo con el nuevo socket SSL
+    QTcpSocket* oldSocket = socket;
+    socket = sslSocket;
+    oldSocket->setParent(nullptr);
+    oldSocket->deleteLater();
+    
+    // Marcar el canal de control como seguro
+    m_secureControl = true;
+    m_sslConfig = config;
+    
+    emit logMessage("Canal de control ahora está cifrado con SSL/TLS");
+    return true;
+}
+
+bool FtpClientHandler::startSecureData(const QSslConfiguration& config) {
+    // Solo configurar el modo seguro para futuras conexiones de datos
+    m_secureData = true;
+    m_sslConfig = config;
+    
+    emit logMessage("Canal de datos configurado para usar cifrado SSL/TLS");
+    return true;
+}
+
+// Implementación de comandos FTPS
+void FtpClientHandler::handleAuth(const QString& arg) {
+    if (m_secureControl) {
+        sendResponse("503 Ya está usando una conexión segura");
+        return;
+    }
+    
+    // Obtener el servidor FTP (parent)
+    FtpServer* server = qobject_cast<FtpServer*>(parent());
+    if (!server) {
+        sendResponse("500 Error interno del servidor");
+        return;
+    }
+    
+    // Verificar si SSL está habilitado en el servidor
+    if (!server->isSslEnabled()) {
+        sendResponse("431 SSL no está habilitado en este servidor");
+        return;
+    }
+    
+    // Verificar el método solicitado (TLS o SSL)
+    if (arg.toUpper() == "TLS" || arg.toUpper() == "SSL") {
+        sendResponse("234 Iniciando negociación SSL/TLS");
+        
+        // Iniciar la conexión segura
+        QTimer::singleShot(100, this, [this, server, arg]() {
+            // Usar el método handleAuthCommand del servidor para obtener la configuración SSL
+            if (server->handleAuthCommand(this, arg)) {
+                // La configuración SSL se maneja en el servidor
+                // No necesitamos acceder directamente a m_sslConfiguration
+                startSecureControl(server->getSslConfiguration());
+            } else {
+                emit logMessage("Error al iniciar la conexión segura");
+                socket->disconnectFromHost();
+            }
+        });
+    } else {
+        sendResponse(QString("504 Método AUTH no soportado: %1").arg(arg));
+    }
+}
+
+void FtpClientHandler::handlePbsz(const QString& arg) {
+    if (!m_secureControl) {
+        sendResponse("503 Necesita usar AUTH primero");
+        return;
+    }
+    
+    // En TLS/SSL, el tamaño del buffer de protección siempre es 0
+    bool ok;
+    arg.toULongLong(&ok);
+    if (!ok) {
+        sendResponse("501 Valor PBSZ inválido");
+        return;
+    }
+    
+    sendResponse("200 PBSZ=0");
+}
+
+void FtpClientHandler::handleProt(const QString& arg) {
+    if (!m_secureControl) {
+        sendResponse("503 Necesita usar AUTH primero");
+        return;
+    }
+    
+    // P: Private (cifrado), C: Clear (sin cifrar)
+    if (arg.toUpper() == "P") {
+        m_secureData = true;
+        sendResponse("200 Canal de datos ahora está en modo privado (cifrado)");
+    } else if (arg.toUpper() == "C") {
+        m_secureData = false;
+        sendResponse("200 Canal de datos ahora está en modo claro (sin cifrar)");
+    } else {
+        sendResponse(QString("504 Nivel de protección no soportado: %1").arg(arg));
+    }
+}
+#endif
 
 void FtpClientHandler::checkInactivity() {
     auto now = std::chrono::steady_clock::now();

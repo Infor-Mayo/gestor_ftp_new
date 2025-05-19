@@ -1,0 +1,353 @@
+[2025-05-09 09:56:42] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 09:56:42] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 10:00:43] Debug: Usuario añadido: "user1"
+[2025-05-09 10:01:10] Debug: "user1"
+[2025-05-09 10:01:10] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:10] Debug: Tiempo validación: 43 ms
+[2025-05-09 10:01:10] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:14] Debug: "user1"
+[2025-05-09 10:01:14] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:14] Debug: Tiempo validación: 35 ms
+[2025-05-09 10:01:14] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:15] Debug: "user1"
+[2025-05-09 10:01:15] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:15] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:15] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:15] Debug: "user1"
+[2025-05-09 10:01:15] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:15] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:01:15] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:15] Debug: "user1"
+[2025-05-09 10:01:15] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:15] Debug: Tiempo validación: 5 ms
+[2025-05-09 10:01:15] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:16] Debug: "user1"
+[2025-05-09 10:01:16] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:16] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:16] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:16] Debug: "user1"
+[2025-05-09 10:01:16] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:16] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:16] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:16] Debug: "user1"
+[2025-05-09 10:01:16] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:16] Debug: Tiempo validación: 4 ms
+[2025-05-09 10:01:16] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:16] Debug: "user1"
+[2025-05-09 10:01:16] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:16] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:16] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:17] Debug: "user1"
+[2025-05-09 10:01:17] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:17] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:17] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:17] Debug: "user1"
+[2025-05-09 10:01:17] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:17] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:17] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:17] Debug: "user1"
+[2025-05-09 10:01:17] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:17] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:17] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:18] Debug: "user1"
+[2025-05-09 10:01:18] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:18] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:18] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:19] Debug: "user1"
+[2025-05-09 10:01:19] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:19] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:19] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:20] Debug: "user1"
+[2025-05-09 10:01:20] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:20] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:20] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:36] Debug: "user1"
+[2025-05-09 10:01:36] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:36] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:36] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:37] Debug: "user1"
+[2025-05-09 10:01:37] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:37] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:37] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:37] Debug: "user1"
+[2025-05-09 10:01:37] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:37] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:37] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:38] Debug: "user1"
+[2025-05-09 10:01:38] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:38] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:38] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:38] Debug: "user1"
+[2025-05-09 10:01:38] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:38] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:38] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:39] Debug: "user1"
+[2025-05-09 10:01:39] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:39] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:39] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:40] Debug: "user1"
+[2025-05-09 10:01:40] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:40] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:40] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:40] Debug: "user1"
+[2025-05-09 10:01:40] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:40] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:40] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:40] Debug: "user1"
+[2025-05-09 10:01:40] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:40] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:40] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:41] Debug: "user1"
+[2025-05-09 10:01:41] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:41] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:41] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:41] Debug: "user1"
+[2025-05-09 10:01:41] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:41] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:01:41] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:01:41] Debug: "user1"
+[2025-05-09 10:01:41] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:01:41] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:01:41] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:02:02] Debug: "user1"
+[2025-05-09 10:02:02] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:02:02] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:02:02] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:02:02] Debug: "user1"
+[2025-05-09 10:02:02] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:02:02] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:02:02] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:02:02] Debug: "user1"
+[2025-05-09 10:02:02] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:02:02] Debug: Tiempo validación: 4 ms
+[2025-05-09 10:02:02] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:02:09] Debug: "user1"
+[2025-05-09 10:02:09] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:02:09] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:02:09] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:02:09] Debug: "user1"
+[2025-05-09 10:02:09] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:02:09] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:02:09] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:03:18] Debug: "user1"
+[2025-05-09 10:03:18] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:03:18] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:03:18] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:03:19] Debug: "user1"
+[2025-05-09 10:03:19] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:03:19] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:03:19] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:04:58] Debug: "user1"
+[2025-05-09 10:04:58] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:04:58] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:04:58] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:04:58] Debug: "user1"
+[2025-05-09 10:04:58] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:04:58] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:04:58] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:07:07] Debug: "user1"
+[2025-05-09 10:07:07] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:07:07] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:07:07] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:07:07] Debug: "user1"
+[2025-05-09 10:07:07] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:07:07] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:07:07] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:09:46] Debug: "user1"
+[2025-05-09 10:09:46] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:09:46] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:09:46] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:09:46] Debug: "user1"
+[2025-05-09 10:09:46] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:09:46] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:09:46] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:16:59] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:02] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:02] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:02] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:02] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:02] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:17:14] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-05-09 10:17:14] Warning: QSqlDatabase requires a QCoreApplication
+[2025-05-09 10:18:27] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 10:18:27] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 10:19:29] Debug: "user1"
+[2025-05-09 10:19:33] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:19:33] Debug: Tiempo validación: 3447 ms
+[2025-05-09 10:19:33] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:19:33] Debug: "user1"
+[2025-05-09 10:19:33] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:19:33] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:19:33] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:19:53] Debug: "user1"
+[2025-05-09 10:19:53] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:19:53] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:19:53] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:19:53] Debug: "user1"
+[2025-05-09 10:19:53] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:19:53] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:19:53] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:20:28] Debug: "user1"
+[2025-05-09 10:20:28] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:20:28] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:20:28] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:20:28] Debug: "user1"
+[2025-05-09 10:20:28] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:20:28] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:20:28] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:45] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:20:46] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-05-09 10:20:46] Warning: QSqlDatabase requires a QCoreApplication
+[2025-05-09 10:25:19] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 10:25:19] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 10:25:29] Debug: "user1"
+[2025-05-09 10:25:29] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:25:29] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:25:29] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:25:30] Debug: "user1"
+[2025-05-09 10:25:30] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:25:30] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:25:30] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:25:30] Debug: "user1"
+[2025-05-09 10:25:30] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:25:30] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:25:30] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:35:48] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:36:59] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 10:36:59] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 10:37:09] Debug: "user1"
+[2025-05-09 10:37:09] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:37:09] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:37:09] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:37:13] Debug: "user1"
+[2025-05-09 10:37:13] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:37:13] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:37:13] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:37:18] Debug: "user1"
+[2025-05-09 10:37:18] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:37:18] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:37:18] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:25] Warning: QObject::killTimer: Timers cannot be stopped from another thread
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:25] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:39:40] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 10:39:40] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 10:39:47] Debug: "user1"
+[2025-05-09 10:39:47] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:47] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:47] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:48] Debug: "user1"
+[2025-05-09 10:39:48] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:48] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:48] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:48] Debug: "user1"
+[2025-05-09 10:39:48] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:48] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:48] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:48] Debug: "user1"
+[2025-05-09 10:39:48] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:48] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:48] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:48] Debug: "user1"
+[2025-05-09 10:39:48] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:48] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:48] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:55] Debug: "user1"
+[2025-05-09 10:39:55] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:55] Debug: Tiempo validación: 4 ms
+[2025-05-09 10:39:55] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:39:55] Debug: "user1"
+[2025-05-09 10:39:55] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:39:55] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:39:55] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:40:31] Debug: "user1"
+[2025-05-09 10:40:31] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:40:31] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:40:31] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:40:31] Debug: "user1"
+[2025-05-09 10:40:31] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:40:31] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:40:31] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:41:40] Debug: "user1"
+[2025-05-09 10:41:40] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:41:40] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:41:40] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:41:40] Debug: "user1"
+[2025-05-09 10:41:40] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:41:40] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:41:40] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:43:19] Debug: "user1"
+[2025-05-09 10:43:19] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:43:19] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:43:19] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:43:19] Debug: "user1"
+[2025-05-09 10:43:19] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:43:19] Debug: Tiempo validación: 2 ms
+[2025-05-09 10:43:19] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:45:24] Debug: "user1"
+[2025-05-09 10:45:24] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:45:24] Debug: Tiempo validación: 3 ms
+[2025-05-09 10:45:24] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:45:25] Debug: "user1"
+[2025-05-09 10:45:25] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 10:45:25] Debug: Tiempo validación: 20 ms
+[2025-05-09 10:45:25] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:45:41] Warning: QObject::killTimer: Timers cannot be stopped from another thread
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 10:45:41] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 11:08:27] Info: Conexión BD verificada. Ruta: "D:/gestor_ftp_new/gestor_ftp/build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-05-09 11:08:27] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-05-09 11:21:49] Debug: "user1"
+[2025-05-09 11:21:52] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:21:52] Debug: Tiempo validación: 3456 ms
+[2025-05-09 11:21:52] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:21:52] Debug: "user1"
+[2025-05-09 11:21:52] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:21:52] Debug: Tiempo validación: 5 ms
+[2025-05-09 11:21:52] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:21:53] Debug: "user1"
+[2025-05-09 11:21:53] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:21:53] Debug: Tiempo validación: 3 ms
+[2025-05-09 11:21:53] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:21:53] Debug: "user1"
+[2025-05-09 11:21:53] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:21:53] Debug: Tiempo validación: 3 ms
+[2025-05-09 11:21:53] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:21:53] Debug: "user1"
+[2025-05-09 11:21:53] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:21:53] Debug: Tiempo validación: 3 ms
+[2025-05-09 11:21:53] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:22:59] Debug: "user1"
+[2025-05-09 11:22:59] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:22:59] Debug: Tiempo validación: 3 ms
+[2025-05-09 11:22:59] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:22:59] Debug: "user1"
+[2025-05-09 11:22:59] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:22:59] Debug: Tiempo validación: 2 ms
+[2025-05-09 11:22:59] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 11:22:59] Debug: "user1"
+[2025-05-09 11:22:59] Debug: Salt válido obtenido para "user1" | Longitud: 8
+[2025-05-09 11:22:59] Debug: Tiempo validación: 2 ms
+[2025-05-09 11:22:59] Debug: Hash generado: "8331de8b" ...
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:28] Warning: QObject::killTimer: Timers cannot be stopped from another thread
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:28] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-05-09 12:08:34] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-05-09 12:08:34] Warning: QSqlDatabase requires a QCoreApplication

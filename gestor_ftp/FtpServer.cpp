@@ -13,6 +13,9 @@ FtpServer::FtpServer(const QString &rootDir, const QHash<QString, QString> &user
       rootDir(rootDir), 
       users(users),
       activeHandlers()
+#ifdef HAVE_SSL
+      , m_sslEnabled(false)
+#endif
 {
     if (!listen(QHostAddress::Any, port)) {
         qWarning() << "No se pudo iniciar el servidor FTP:" << errorString();
@@ -107,18 +110,17 @@ void FtpServer::incomingConnection(qintptr socketDescriptor)
 }
 
 QStringList FtpServer::getConnectedClients() const {
-    QStringList clients;
-    for (auto it = activeHandlers.constBegin(); it != activeHandlers.constEnd(); ++it) {
-        QString ip = it.key();
-        FtpClientHandler* handler = it.value();
-        if (handler && handler->isLoggedIn()) {
-            QString username = handler->getUsername();
-            clients << QString("%1 (%2)").arg(ip).arg(username);
-        } else {
-            clients << QString("%1 (no autenticado)").arg(ip);
+    return activeHandlers.keys();
+}
+
+int FtpServer::getActiveTransfers() const {
+    int count = 0;
+    for (const auto& handler : activeHandlers) {
+        if (handler->isTransferActive()) {
+            count++;
         }
     }
-    return clients;
+    return count;
 }
 
 void FtpServer::disconnectClient(const QString& ip) {
@@ -131,3 +133,115 @@ void FtpServer::disconnectClient(const QString& ip) {
         }
     }
 }
+
+#ifdef HAVE_SSL
+// Implementación de funciones SSL/TLS
+bool FtpServer::enableSsl(const QString &certificateFile, const QString &privateKeyFile, const QString &privateKeyPassword) {
+    // Cargar el certificado
+    QFile certFile(certificateFile);
+    if (!certFile.open(QIODevice::ReadOnly)) {
+        emit logMessage(QString("Error al abrir el archivo de certificado: %1").arg(certificateFile));
+        return false;
+    }
+    
+    QSslCertificate cert(&certFile, QSsl::Pem);
+    if (cert.isNull()) {
+        emit logMessage("El certificado no es válido");
+        return false;
+    }
+    m_certificate = cert;
+    certFile.close();
+    
+    // Cargar la clave privada
+    QFile keyFile(privateKeyFile);
+    if (!keyFile.open(QIODevice::ReadOnly)) {
+        emit logMessage(QString("Error al abrir el archivo de clave privada: %1").arg(privateKeyFile));
+        return false;
+    }
+    
+    QSslKey key(&keyFile, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, privateKeyPassword.toUtf8());
+    if (key.isNull()) {
+        emit logMessage("La clave privada no es válida");
+        return false;
+    }
+    m_privateKey = key;
+    keyFile.close();
+    
+    // Configurar SSL
+    m_sslConfiguration = QSslConfiguration::defaultConfiguration();
+    m_sslConfiguration.setLocalCertificate(m_certificate);
+    m_sslConfiguration.setPrivateKey(m_privateKey);
+    m_sslConfiguration.setProtocol(QSsl::TlsV1_2OrLater);
+    
+    m_sslEnabled = true;
+    emit logMessage("SSL/TLS habilitado para conexiones seguras");
+    return true;
+}
+
+void FtpServer::disableSsl() {
+    m_sslEnabled = false;
+    emit logMessage("SSL/TLS deshabilitado");
+}
+
+QString FtpServer::getSslCertificateInfo() const {
+    if (!m_sslEnabled || m_certificate.isNull()) {
+        return "SSL no configurado";
+    }
+    
+    return QString("Certificado: %1, Válido desde: %2, Hasta: %3")
+        .arg(m_certificate.subjectInfo(QSslCertificate::CommonName).join(", "))
+        .arg(m_certificate.effectiveDate().toString("yyyy-MM-dd"))
+        .arg(m_certificate.expiryDate().toString("yyyy-MM-dd"));
+}
+
+// Implementación de comandos FTPS
+bool FtpServer::handleAuthCommand(FtpClientHandler* handler, const QString& arg) {
+    if (!m_sslEnabled) {
+        emit logMessage("Comando AUTH recibido pero SSL no está habilitado");
+        return false;
+    }
+    
+    if (arg.toUpper() == "TLS" || arg.toUpper() == "SSL") {
+        emit logMessage(QString("Iniciando negociación %1").arg(arg.toUpper()));
+        return true;
+    }
+    
+    emit logMessage(QString("Método AUTH no soportado: %1").arg(arg));
+    return false;
+}
+
+bool FtpServer::handlePbszCommand(FtpClientHandler* handler, const QString& arg) {
+    if (!m_sslEnabled) {
+        emit logMessage("Comando PBSZ recibido pero SSL no está habilitado");
+        return false;
+    }
+    
+    bool ok;
+    arg.toULongLong(&ok);
+    if (!ok) {
+        emit logMessage(QString("Valor PBSZ inválido: %1").arg(arg));
+        return false;
+    }
+    
+    emit logMessage("Tamaño del buffer de protección establecido");
+    return true;
+}
+
+bool FtpServer::handleProtCommand(FtpClientHandler* handler, const QString& arg) {
+    if (!m_sslEnabled) {
+        emit logMessage("Comando PROT recibido pero SSL no está habilitado");
+        return false;
+    }
+    
+    if (arg.toUpper() == "P") {
+        emit logMessage("Canal de datos: Privado (cifrado)");
+        return true;
+    } else if (arg.toUpper() == "C") {
+        emit logMessage("Canal de datos: Claro (sin cifrar)");
+        return true;
+    }
+    
+    emit logMessage(QString("Nivel de protección no soportado: %1").arg(arg));
+    return false;
+}
+#endif

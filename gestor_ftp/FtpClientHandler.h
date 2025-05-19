@@ -18,6 +18,11 @@
 #include <QBuffer>
 #include <chrono>
 
+#ifdef HAVE_SSL
+#include <QSslSocket>
+#include <QSslConfiguration>
+#endif
+
 class DatabaseManager;  // Forward declaration
 
 class FtpClientHandler : public QObject {
@@ -31,6 +36,29 @@ public:
     bool isLoggedIn() const { return loggedIn; }
     QString getUsername() const { return currentUser; }
     void forceDisconnect();
+    bool isTransferActive() const { return transferActive; }
+    
+#ifdef HAVE_SSL
+    // Métodos SSL/TLS
+    bool startSecureControl(const QSslConfiguration& config);
+    bool startSecureData(const QSslConfiguration& config);
+    bool isSecureControl() const { return m_secureControl; }
+    bool isSecureData() const { return m_secureData; }
+    
+    // Comandos FTPS
+    void handleAuth(const QString& arg);
+    void handlePbsz(const QString& arg);
+    void handleProt(const QString& arg);
+#else
+    // Versiones de compatibilidad cuando SSL no está disponible
+    bool isSecureControl() const { return false; }
+    bool isSecureData() const { return false; }
+    
+    // Comandos FTPS (versiones sin SSL)
+    void handleAuth(const QString& /* arg */) { sendResponse("502 SSL no soportado"); }
+    void handlePbsz(const QString& /* arg */) { sendResponse("502 SSL no soportado"); }
+    void handleProt(const QString& /* arg */) { sendResponse("502 SSL no soportado"); }
+#endif
 
     void handleSTOR(const std::string& filename);
     void checkInactivity();
@@ -78,9 +106,16 @@ private:
     QString clientInfo;
     QTimer *connectionTimer;  // Timer para control de timeout
     bool verboseLogging = true;  // Cambiar a false en producción
-    bool isTransferActive = false;  // Nuevo estado
+    bool transferActive = false;  // Estado de transferencia activa
     std::chrono::steady_clock::time_point lastActivity;  // Para manejar la inactividad
     std::string currentDirectory;  // Para manejar el directorio actual
+    
+#ifdef HAVE_SSL
+    // Variables para SSL/TLS
+    bool m_secureControl = false;  // Indica si el canal de control está cifrado
+    bool m_secureData = false;     // Indica si el canal de datos está cifrado
+    QSslConfiguration m_sslConfig; // Configuración SSL
+#endif
     
     // Variables para la conexión de datos
     QString dataConnectionIp;

@@ -33,6 +33,7 @@ public:
     void createTables();
     bool validateUser(const QString &username, const QString &passwordHash);
     const QString& getDatabasePath() const { return dbPath; }
+    bool reconnect();
 
     explicit DatabaseManager(QObject *parent = nullptr);
 

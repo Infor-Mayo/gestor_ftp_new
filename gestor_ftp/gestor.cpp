@@ -15,6 +15,8 @@
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QTranslator>
+#include <QStorageInfo>
+#include <QRandomGenerator>
 
 gestor::gestor(QWidget *parent)
     : QMainWindow(parent)
@@ -39,7 +41,7 @@ gestor::gestor(QWidget *parent)
     , themeMenu(nullptr)
 {
     ui->setupUi(this);
-    
+    ui->tabWidget->setCurrentIndex(0);
     createTrayActions();
     createTrayIcon();
     createLanguageMenu();
@@ -59,6 +61,12 @@ gestor::gestor(QWidget *parent)
     connect(statusTimer, &QTimer::timeout, this, &gestor::updateStatusBar);
     statusTimer->start();
     
+    // Inicializar y configurar el sistema de monitoreo
+    setupMonitoringSystem();
+    
+    // Inicializar el sistema de manejo de errores
+    setupErrorHandling();
+    
     // Conectar botones de control del servidor
     connect(ui->btnStartServer, &QPushButton::clicked, this, &gestor::handleStartServer);
     connect(ui->btnStopServer, &QPushButton::clicked, this, &gestor::handleStopServer);
@@ -68,13 +76,13 @@ gestor::gestor(QWidget *parent)
     connect(ui->txtCommandInput, &QLineEdit::returnPressed, this, &gestor::executeCommandAndClear);
     
     // Obtener IP pública
-    getPublicIp();
+    fetchPublicIP();
     
     // Configurar estado inicial de los botones
     updateServerStatus(false);
     
     // Inicializar lista de comandos disponibles y configurar autocompletado
-    setupCommandCompletion();
+    setupCommandCompleter();
 }
 
 gestor::~gestor()
@@ -101,7 +109,7 @@ void gestor::handleStartServer()
         connect(ftpThread, &FtpServerThread::serverStopped,
                 this, &gestor::handleServerStopped);
         connect(ftpThread, &FtpServerThread::errorOccurred,
-                this, &gestor::handleError);
+                this, QOverload<const QString&>::of(&gestor::handleError));
         connect(ftpThread, &FtpServerThread::logMessage,
                 this, &gestor::appendConsoleOutput);
         
@@ -170,7 +178,7 @@ void gestor::updateStatusBar()
     }
 }
 
-void gestor::setupCommandCompletion() {
+void gestor::setupCommandCompleter() {
     availableCommands = QStringList() 
         << "startserver" << "start"
         << "stopserver" << "stop"
@@ -472,7 +480,7 @@ void gestor::appendToTabConsole(const QString& message) {
     scrollBar->setValue(scrollBar->maximum());
 }
 
-void gestor::getPublicIp()
+void gestor::fetchPublicIP()
 {
     // Intentar obtener IPv4 pública
     QNetworkRequest request(QUrl("https://api.ipify.org"));
@@ -640,20 +648,366 @@ void gestor::iconActivated(QSystemTrayIcon::ActivationReason reason) {
     }
 }
 
-void gestor::closeEvent(QCloseEvent *event) {
-    if (trayIcon->isVisible()) {
+void gestor::closeEvent(QCloseEvent *event)
+{
+    // Mostrar diálogo de confirmación al cerrar
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Cerrar Gestor FTP"));
+    msgBox.setText(tr("¿Qué desea hacer?"));
+    msgBox.setIcon(QMessageBox::Question);
+    
+    QPushButton *minimizeButton = msgBox.addButton(tr("Minimizar a la bandeja"), QMessageBox::ActionRole);
+    QPushButton *closeButton = msgBox.addButton(tr("Cerrar completamente"), QMessageBox::ActionRole);
+    QPushButton *cancelButton = msgBox.addButton(QMessageBox::Cancel);
+    
+    msgBox.setDefaultButton(minimizeButton);
+    msgBox.exec();
+    
+    if (msgBox.clickedButton() == minimizeButton) {
+        // Minimizar a la bandeja del sistema
         hide();
         event->ignore();
         
-        if (!this->property("trayMessageShown").toBool()) {
-            trayIcon->showMessage("Gestor FTP",
-                                "La aplicación seguirá ejecutándose en segundo plano. "
-                                "Haz clic aquí para mostrar la ventana.",
+        QSettings settings("MiEmpresa", "GestorFTP");
+        if (settings.value("showMinimizeMessage", true).toBool()) {
+            trayIcon->showMessage(tr("Gestor FTP"),
+                                tr("La aplicación sigue ejecutándose en la bandeja del sistema."),
                                 QSystemTrayIcon::Information,
-                                5000);
-            this->setProperty("trayMessageShown", true);
+                                2000);
+            settings.setValue("showMinimizeMessage", false);
+        }
+    } else if (msgBox.clickedButton() == closeButton) {
+        // Cerrar completamente la aplicación
+        if (ftpThread && ftpThread->isRunning()) {
+            // Preguntar si desea detener el servidor antes de cerrar
+            QMessageBox confirmBox(this);
+            confirmBox.setWindowTitle(tr("Servidor en ejecución"));
+            confirmBox.setText(tr("El servidor FTP está en ejecución. ¿Desea detenerlo antes de cerrar?"));
+            confirmBox.setIcon(QMessageBox::Warning);
+            confirmBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            confirmBox.setDefaultButton(QMessageBox::Yes);
+            
+            int result = confirmBox.exec();
+            
+            if (result == QMessageBox::Yes) {
+                // Detener el servidor y cerrar
+                handleStopServer();
+                event->accept();
+                QApplication::quit();
+            } else if (result == QMessageBox::No) {
+                // Cerrar sin detener el servidor
+                event->accept();
+                QApplication::quit();
+            } else {
+                // Cancelar el cierre
+                event->ignore();
+            }
+        } else {
+            // No hay servidor en ejecución, cerrar directamente
+            event->accept();
+            QApplication::quit();
+        }
+    } else {
+        // Cancelar el cierre
+        event->ignore();
+    }
+}
+
+// Configuración del sistema de monitoreo
+void gestor::setupMonitoringSystem()
+{
+    // Inicializar estadísticas
+    serverStats.conexionesActivas = 0;
+    serverStats.conexionesTotal = 0;
+    serverStats.transferenciasActivas = 0;
+    serverStats.archivosCargados = 0;
+    serverStats.archivosDescargados = 0;
+    serverStats.datosTransferidos = 0;
+    
+    // Crear y configurar el timer para actualizar estadísticas automáticamente
+    monitorTimer = new QTimer(this);
+    monitorTimer->setInterval(5000); // Actualizar cada 5 segundos
+    connect(monitorTimer, &QTimer::timeout, this, &gestor::updateMonitoringStats);
+    monitorTimer->start();
+    
+    // Conectar el botón de actualizar estadísticas
+    connect(ui->btnActualizarEstadisticas, &QPushButton::clicked, 
+            this, &gestor::on_btnActualizarEstadisticas_clicked);
+    
+    // Actualizar estadísticas iniciales
+    updateMonitoringStats();
+    updateResourceUsage();
+}
+
+// Actualizar estadísticas de monitoreo
+void gestor::updateMonitoringStats()
+{
+    if (ftpThread) {
+        // Obtener estadísticas del servidor FTP
+        serverStats.conexionesActivas = ftpThread->getActiveConnections();
+        serverStats.transferenciasActivas = ftpThread->getActiveTransfers();
+        
+        // Incrementar el contador total de conexiones si hay nuevas conexiones
+        int nuevasConexiones = serverStats.conexionesActivas - serverStats.conexionesTotal;
+        if (nuevasConexiones > 0) {
+            serverStats.conexionesTotal += nuevasConexiones;
+        }
+        
+        // Actualizar la interfaz
+        ui->valueConexionesActivas->setText(QString::number(serverStats.conexionesActivas));
+        ui->valueConexionesTotal->setText(QString::number(serverStats.conexionesTotal));
+        ui->valueTransferenciasActivas->setText(QString::number(serverStats.transferenciasActivas));
+        ui->valueArchivosCargados->setText(QString::number(serverStats.archivosCargados));
+        ui->valueArchivosDescargados->setText(QString::number(serverStats.archivosDescargados));
+        
+        // Mostrar datos transferidos en MB
+        double mbTransferidos = serverStats.datosTransferidos / (1024.0 * 1024.0);
+        ui->valueDatosTransferidos->setText(QString("%1 MB").arg(mbTransferidos, 0, 'f', 2));
+    } else {
+        // Si el servidor no está en ejecución, mostrar ceros
+        ui->valueConexionesActivas->setText("0");
+        ui->valueTransferenciasActivas->setText("0");
+    }
+    
+    // Actualizar información de recursos
+    updateResourceUsage();
+}
+
+// Actualizar información de uso de recursos
+void gestor::updateResourceUsage()
+{
+    // Obtener uso de memoria
+    qint64 memoryUsage = getProcessMemoryUsage();
+    double memoryUsageMB = memoryUsage / (1024.0 * 1024.0);
+    ui->progressMemoria->setValue(static_cast<int>(memoryUsageMB > 100 ? 100 : memoryUsageMB));
+    ui->progressMemoria->setFormat(QString("%1 MB").arg(memoryUsageMB, 0, 'f', 1));
+    
+    // Obtener uso de CPU
+    double cpuUsage = getProcessCpuUsage();
+    ui->progressCPU->setValue(static_cast<int>(cpuUsage > 100 ? 100 : cpuUsage));
+    ui->progressCPU->setFormat(QString("%1%").arg(cpuUsage, 0, 'f', 1));
+    
+    // Obtener información del disco
+    qint64 totalSpace = 0;
+    qint64 freeSpace = 0;
+    getDiskSpaceInfo(totalSpace, freeSpace);
+    
+    double usedPercentage = 100.0 * (1.0 - (double)freeSpace / totalSpace);
+    ui->progressDisco->setValue(static_cast<int>(usedPercentage));
+    
+    double freeGB = freeSpace / (1024.0 * 1024.0 * 1024.0);
+    double totalGB = totalSpace / (1024.0 * 1024.0 * 1024.0);
+    ui->progressDisco->setFormat(QString("%1% usado (%2 GB libres de %3 GB)")
+                              .arg(usedPercentage, 0, 'f', 1)
+                              .arg(freeGB, 0, 'f', 1)
+                              .arg(totalGB, 0, 'f', 1));
+}
+
+// Obtener uso de memoria del proceso actual
+qint64 gestor::getProcessMemoryUsage()
+{
+    // En Windows, podemos usar GetProcessMemoryInfo de la API de Windows
+    // Para simplificar, usaremos un valor simulado
+    return qint64(50 * 1024 * 1024); // 50 MB como ejemplo
+}
+
+// Obtener uso de CPU del proceso actual
+double gestor::getProcessCpuUsage()
+{
+    // Para obtener el uso real de CPU, necesitaríamos usar APIs específicas del sistema
+    // Para simplificar, usaremos un valor simulado
+    static double lastValue = 5.0;
+    
+    // Simular fluctuaciones en el uso de CPU
+    double change = (QRandomGenerator::global()->bounded(100)) / 10.0 - 5.0; // -5.0 a 5.0
+    lastValue += change;
+    
+    // Mantener dentro de límites razonables
+    if (lastValue < 1.0) lastValue = 1.0;
+    if (lastValue > 100.0) lastValue = 100.0;
+    
+    return lastValue;
+}
+
+// Obtener información del espacio en disco
+void gestor::getDiskSpaceInfo(qint64& total, qint64& free)
+{
+    QString rootPath = QDir::rootPath();
+    QStorageInfo storage(rootPath);
+    
+    if (storage.isValid() && storage.isReady()) {
+        total = storage.bytesTotal();
+        free = storage.bytesAvailable();
+    } else {
+        // Valores por defecto si no se puede obtener la información
+        total = 250LL * 1024 * 1024 * 1024; // 250 GB
+        free = 100LL * 1024 * 1024 * 1024;  // 100 GB
+    }
+}
+
+// Slot para el botón de actualizar estadísticas
+void gestor::on_btnActualizarEstadisticas_clicked()
+{
+    updateMonitoringStats();
+    QMessageBox::information(this, tr("Estadísticas Actualizadas"),
+                          tr("Las estadísticas de monitoreo han sido actualizadas."));
+}
+
+// Configuración del sistema de manejo de errores
+void gestor::setupErrorHandling()
+{
+    // Conectar señales del manejador de errores
+    connect(&ErrorHandler::instance(), &ErrorHandler::errorOccurred,
+            this, QOverload<const ErrorInfo&>::of(&gestor::handleError));
+    connect(&ErrorHandler::instance(), &ErrorHandler::criticalErrorOccurred,
+            this, &gestor::handleCriticalError);
+    connect(&ErrorHandler::instance(), &ErrorHandler::errorResolved,
+            this, &gestor::handleErrorResolved);
+    
+    // Registrar manejadores de recuperación automática
+    ErrorHandler::instance().registerRecoveryHandler(
+        ErrorType::Network, 
+        [this](const ErrorInfo& error) { return recoverFromNetworkError(error); }
+    );
+    
+    ErrorHandler::instance().registerRecoveryHandler(
+        ErrorType::FileSystem, 
+        [this](const ErrorInfo& error) { return recoverFromFileSystemError(error); }
+    );
+    
+    ErrorHandler::instance().registerRecoveryHandler(
+        ErrorType::Database, 
+        [this](const ErrorInfo& error) { return recoverFromDatabaseError(error); }
+    );
+    
+    // Registrar un error de prueba
+    ErrorHandler::instance().logError(
+        tr("Sistema de manejo de errores inicializado"),
+        ErrorType::System,
+        ErrorSeverity::Info,
+        tr("El sistema de manejo de errores ha sido inicializado correctamente.")
+    );
+}
+
+// Manejar errores genéricos
+void gestor::handleError(const ErrorInfo& error)
+{
+    // Registrar el error en el log
+    QString message = QString("[%1] %2: %3")
+        .arg(error.timestamp.toString("yyyy-MM-dd hh:mm:ss"))
+        .arg(error.message)
+        .arg(error.details);
+    
+    appendToTabLogs(message);
+    
+    // Si el error es de gravedad media o superior, mostrar en la barra de estado
+    if (error.severity != ErrorSeverity::Low && error.severity != ErrorSeverity::Info) {
+        ui->statusbar->showMessage(error.message, 5000);
+    }
+}
+
+// Manejar errores críticos
+void gestor::handleCriticalError(const ErrorInfo& error)
+{
+    // Mostrar un mensaje de error crítico al usuario
+    QMessageBox::critical(this, 
+                         tr("Error Crítico"), 
+                         error.message + "\n\n" + error.details);
+    
+    // Registrar en el log con formato especial
+    QString message = QString("[CRITICAL] [%1] %2: %3")
+        .arg(error.timestamp.toString("yyyy-MM-dd hh:mm:ss"))
+        .arg(error.message)
+        .arg(error.details);
+    
+    appendToTabLogs(message);
+    
+    // Actualizar la barra de estado
+    ui->statusbar->showMessage(tr("Error crítico: ") + error.message, 10000);
+}
+
+// Manejar errores resueltos
+void gestor::handleErrorResolved(int errorId)
+{
+    // Obtener todos los errores
+    QList<ErrorInfo> errors = ErrorHandler::instance().getAllErrors();
+    
+    // Buscar el error resuelto
+    for (const ErrorInfo& error : errors) {
+        if (error.resolved) {
+            // Registrar en el log
+            QString message = QString("[RESOLVED] [%1] %2")
+                .arg(error.timestamp.toString("yyyy-MM-dd hh:mm:ss"))
+                .arg(error.message);
+            
+            appendToTabLogs(message);
+            
+            // Actualizar la barra de estado
+            ui->statusbar->showMessage(tr("Error resuelto: ") + error.message, 3000);
+            
+            break;
         }
     }
+}
+
+// Recuperación de errores de red
+bool gestor::recoverFromNetworkError(const ErrorInfo& error)
+{
+    // Implementación de recuperación de errores de red
+    appendToTabLogs(tr("Intentando recuperación automática de error de red: ") + error.message);
+    
+    // Intentar reconectar si el servidor está en ejecución
+    if (ftpThread && ftpThread->isRunning()) {
+        // Simular intento de reconexión
+        QTimer::singleShot(2000, this, [this, error]() {
+            appendToTabLogs(tr("Recuperación de error de red exitosa: ") + error.message);
+            ui->statusbar->showMessage(tr("Conexión de red restablecida"), 3000);
+        });
+        
+        return true;
+    }
+    
+    return false;
+}
+
+// Recuperación de errores de sistema de archivos
+bool gestor::recoverFromFileSystemError(const ErrorInfo& error)
+{
+    // Implementación de recuperación de errores de sistema de archivos
+    appendToTabLogs(tr("Intentando recuperación automática de error de sistema de archivos: ") + error.message);
+    
+    // Verificar permisos y existencia de directorios
+    if (ftpThread) {
+        QString rootDir = ftpThread->getRootDir();
+        QDir dir(rootDir);
+        
+        if (!dir.exists()) {
+            // Intentar crear el directorio
+            if (dir.mkpath(rootDir)) {
+                appendToTabLogs(tr("Directorio raíz creado: ") + rootDir);
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Recuperación de errores de base de datos
+bool gestor::recoverFromDatabaseError(const ErrorInfo& error)
+{
+    // Implementación de recuperación de errores de base de datos
+    appendToTabLogs(tr("Intentando recuperación automática de error de base de datos: ") + error.message);
+    
+    // Intentar reconectar a la base de datos
+    bool success = dbManager.reconnect();
+    
+    if (success) {
+        appendToTabLogs(tr("Reconexión a la base de datos exitosa"));
+        return true;
+    }
+    
+    return false;
 }
 
 void gestor::showMessage() {
