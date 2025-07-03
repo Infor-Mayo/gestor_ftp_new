@@ -13,6 +13,14 @@ public:
     explicit FtpServerThread(const QString &rootDir, const QHash<QString, QString> &users, int port, QObject *parent = nullptr);
     ~FtpServerThread();
 
+    void cleanup() {
+        if (server) {
+            server->stop();
+            delete server;
+            server = nullptr;
+        }
+    }
+
     int getActiveConnections() const {
         return server ? FtpServer::getActiveConnections() : 0;
     }

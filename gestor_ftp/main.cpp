@@ -14,7 +14,7 @@
 #include <QThread>
 #include <QPluginLoader>
 
-void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) // Se omite el parámetro context intencionadamente
 {
     QString txt;
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
@@ -68,8 +68,9 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+    // Las siguientes líneas se han comentado porque estas funciones están obsoletas en Qt 6.9.0
+    // QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    // QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     
     // Optimizar para alto rendimiento
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);

@@ -25,7 +25,9 @@ SOURCES += \
     Logger.cpp \
     DatabaseManager.cpp \
     FtpClientHandler.cpp \
-    ErrorHandler.cpp
+    ErrorHandler.cpp \
+    ShortcutManager.cpp \
+    ShortcutDialog.cpp
 
 HEADERS += \
     FtpClientHandler.h \
@@ -34,7 +36,9 @@ HEADERS += \
     gestor.h \
     Logger.h \
     DatabaseManager.h \
-    ErrorHandler.h
+    ErrorHandler.h \
+    ShortcutManager.h \
+    ShortcutDialog.h
 
 FORMS += \
     gestor.ui

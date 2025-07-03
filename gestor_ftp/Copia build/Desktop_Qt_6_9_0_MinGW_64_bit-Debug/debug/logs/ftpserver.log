@@ -1,0 +1,18 @@
+[2025-06-02 02:14:44] Info: Conexión BD verificada. Ruta: "D:/proyectos/gestor_ftp_new/gestor_ftp/Copia build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-06-02 02:14:44] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-06-02 02:17:39] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-06-02 02:17:39] Warning: QSqlDatabase requires a QCoreApplication
+[2025-06-02 02:23:05] Info: Conexión BD verificada. Ruta: "D:/proyectos/gestor_ftp_new/gestor_ftp/Copia build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-06-02 02:23:05] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-06-02 02:23:07] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-06-02 02:23:07] Warning: QSqlDatabase requires a QCoreApplication
+[2025-06-02 02:26:39] Info: Conexión BD verificada. Ruta: "D:/proyectos/gestor_ftp_new/gestor_ftp/Copia build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-06-02 02:26:42] Info: Conexión BD verificada. Ruta: "D:/proyectos/gestor_ftp_new/gestor_ftp/Copia build/Desktop_Qt_6_9_0_MinGW_64_bit-Debug/debug/db/ftp_users.db"
+[2025-06-02 02:26:43] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-06-02 02:26:43] Debug: Aplicación iniciada. Use la interfaz para controlar el servidor FTP.
+[2025-06-02 02:26:50] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-06-02 02:26:50] Warning: QSqlDatabase requires a QCoreApplication
+[2025-06-02 02:48:27] Warning: Error añadiendo usuario: "UNIQUE constraint failed: users.username Unable to fetch row" - Consulta: "INSERT INTO users (username, password, salt) VALUES (:user, :pass, :salt)"
+[2025-06-02 02:50:04] Warning: QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread
+[2025-06-02 02:50:09] Warning: QSqlDatabasePrivate::removeDatabase: connection 'main_connection' is still in use, all queries will cease to work.
+[2025-06-02 02:50:09] Warning: QSqlDatabase requires a QCoreApplication
