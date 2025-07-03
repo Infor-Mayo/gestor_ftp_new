@@ -273,8 +273,8 @@ void TestGestorFTP::testPathTraversal()
     QStringList invalidPaths = {
         "../outside",
         "subdir/../../outside",
-        "/etc/passwd",
-        "C:/Windows/System32"
+        "test_data/mock_passwd",
+        "test_data/mock_system32"
     };
     
     for(const QString& path : invalidPaths) {
