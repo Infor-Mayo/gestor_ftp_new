@@ -2,84 +2,94 @@
 #include "ui_gestor.h"
 #include <QMessageBox>
 #include <QFileDialog>
-#include <QDir>
 #include <QTextStream>
-#include <QDateTime>
+#include <QDebug>
 #include <QHostAddress>
 #include <QNetworkInterface>
-#include <QApplication>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QScrollBar>
-#include <QCloseEvent>
-#include <QSystemTrayIcon>
-#include <QTimer>
-#include <QTranslator>
+#include <QProcess>
+#include <QDir>
+#include <QStandardPaths>
+#include <QDateTime>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QStyleFactory>
+#include <QFileIconProvider>
 #include <QStorageInfo>
 #include <QRandomGenerator>
+#include <QScrollBar>
+#include <QCheckBox>
+
+// Definición de la instancia estática para el manejador de logs
+gestor* gestor::instance = nullptr;
+
+// Implementación del manejador de mensajes estático
+void gestor::logMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    if (gestor::instance)
+    {
+        QString formattedMsg = qFormatLogMessage(type, context, msg);
+        // Enviar a la GUI de forma segura entre hilos
+        QMetaObject::invokeMethod(gestor::instance, "appendLogMessage", Qt::QueuedConnection, Q_ARG(QString, formattedMsg));
+    }
+}
 
 gestor::gestor(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::gestor), ftpThread(nullptr), statusTimer(new QTimer(this)), 
-      networkManager(new QNetworkAccessManager(this)), 
-      rootDir(""),
-      publicIpv4(""), publicIpv6(""), 
-      serverLoggingEnabled(true), // Reordenado para coincidir con el orden en la declaración
-      availableCommands(),
-      commandCompleter(nullptr),
-      commandHistory(),
-      minimizeAction(nullptr), maximizeAction(nullptr), restoreAction(nullptr), quitAction(nullptr), 
-      trayIconMenu(nullptr), trayIcon(nullptr), 
-      translator(nullptr), languageMenu(nullptr), languageGroup(nullptr), 
-      themeGroup(nullptr), themeMenu(nullptr), 
-      shortcutManager(new ShortcutManager(this)), shortcutMenu(nullptr)
+    : QMainWindow(parent), ui(new Ui::gestor), ftpThread(nullptr), statusTimer(new QTimer(this)),
+      monitorTimer(new QTimer(this)), networkManager(new QNetworkAccessManager(this)),
+      serverLoggingEnabled(true), translator(new QTranslator(this)),
+      shortcutManager(new ShortcutManager(this))
 {
+    instance = this; // Registrar esta instancia como la activa
+
     ui->setupUi(this);
+
+    // Ahora que la interfaz está lista, instalamos el manejador de logs
+    qInstallMessageHandler(gestor::logMessageHandler);
+
     ui->tabWidget->setCurrentIndex(0);
+
     createTrayActions();
     createTrayIcon();
     createLanguageMenu();
     createThemeMenu();
     createShortcutMenu();
-
-    // Inicializar atajos de teclado
     setupShortcuts();
 
-    // Cargar traducciones después de crear el menú de idiomas
-    loadTranslations();
-    ThemeManager::loadTheme(ThemeManager::getCurrentTheme());
-
+    loadSettings();
+    
     trayIcon->show();
 
-    QSettings settings("MiEmpresa", "GestorFTP");
-    rootDir = settings.value("rootDir", QDir::currentPath()).toString();
-
-    // Configurar el timer para actualizar el estado
-    statusTimer->setInterval(1000);
+    // Timers
     connect(statusTimer, &QTimer::timeout, this, &gestor::updateStatusBar);
-    statusTimer->start();
+    statusTimer->start(1000);
 
-    // Inicializar y configurar el sistema de monitoreo
-    setupMonitoringSystem();
+    connect(monitorTimer, &QTimer::timeout, this, &gestor::updateMonitor);
+    monitorTimer->start(2000);
 
-    // Inicializar el sistema de manejo de errores
+    // Systems
+    initializeDatabase();
+    setupCommandCompleter();
     setupErrorHandling();
 
-    // Conectar botones de control del servidor
+    // UI Connections
+    // NOTA: Asumo que los nombres de objeto del .ui son en español (ej. btnIniciar)
     connect(ui->btnStartServer, &QPushButton::clicked, this, &gestor::handleStartServer);
-    connect(ui->btnStopServer, &QPushButton::clicked, this, &gestor::handleStopServer);
+    connect(ui->btnStopServer,  &QPushButton::clicked, this, &gestor::handleStopServer);
 
-    // Conectar señal del botón ejecutar
-    connect(ui->btnExecute, &QPushButton::clicked, this, &gestor::executeCommandAndClear);
-    connect(ui->txtCommandInput, &QLineEdit::returnPressed, this, &gestor::executeCommandAndClear);
+    // También conectamos las acciones del menú, por conveniencia
+    connect(ui->actionIniciar,  &QAction::triggered, this, &gestor::handleStartServer);
+    connect(ui->actionDetener,  &QAction::triggered, this, &gestor::handleStopServer);
 
-    // Obtener IP pública
+    // Otras conexiones de la pestaña Consola y Logs
+    connect(ui->btnLimpiarLogs, &QPushButton::clicked, this, &gestor::on_btnLimpiarLogs_clicked);
+    connect(ui->btnGuardarLogs, &QPushButton::clicked, this, &gestor::on_btnGuardarLogs_clicked);
+    connect(ui->txtCommandInput,&QLineEdit::returnPressed, this, &gestor::executeCommandAndClear);
+    connect(ui->btnExecute,     &QPushButton::clicked, this, &gestor::executeCommandAndClear);
+
     fetchPublicIP();
-
-    // Configurar estado inicial de los botones
     updateServerStatus(false);
 
-    // Inicializar lista de comandos disponibles y configurar autocompletado
-    setupCommandCompleter();
+    qInfo() << "Gestor FTP inicializado. Listo para iniciar el servidor.";
 }
 
 gestor::~gestor()
@@ -90,6 +100,14 @@ gestor::~gestor()
         statusTimer->stop();
         delete statusTimer;
         statusTimer = nullptr;
+    }
+
+    // Detener el timer de monitoreo
+    if (monitorTimer)
+    {
+        monitorTimer->stop();
+        delete monitorTimer;
+        monitorTimer = nullptr;
     }
 
     // Limpiar el servidor FTP
@@ -154,8 +172,6 @@ void gestor::handleStartServer()
                 this, &gestor::handleServerStopped);
         connect(ftpThread, &FtpServerThread::errorOccurred,
                 this, QOverload<const QString &>::of(&gestor::handleError));
-        connect(ftpThread, &FtpServerThread::logMessage,
-                this, &gestor::appendConsoleOutput);
 
         ftpThread->start();
     }
@@ -174,9 +190,9 @@ void gestor::handleStopServer()
         // Desconectar las señales antes de detener
         disconnect(ftpThread, nullptr, this, nullptr);
 
-        // Detener el servidor y limpiar recursos
-        ftpThread->stopServer();
-        ftpThread->cleanup();
+        // Detener el servidor y limpiar recursos en el contexto del hilo
+        QMetaObject::invokeMethod(ftpThread, "stopServer", Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(ftpThread, "cleanup", Qt::BlockingQueuedConnection);
 
         // Esperar a que termine
         if (!ftpThread->wait(3000))
@@ -306,6 +322,8 @@ void gestor::disconnectClient(const QString &ip)
 
 void gestor::executeCommand(const QString &command)
 {
+    static QString ftpMode = "pasv"; // Valor por defecto
+
     QStringList parts = command.toLower().split(' ');
     if (parts.isEmpty())
         return;
@@ -448,7 +466,7 @@ void gestor::executeCommand(const QString &command)
             int max = parts[1].toInt(&ok);
             if (ok && max > 0)
             {
-                FtpServer::setMaxConnections(max);
+                ftpThread->setMaxConnections(max);
                 appendConsoleOutput("Máximo de conexiones establecido a: " + QString::number(max));
             }
             else
@@ -458,7 +476,22 @@ void gestor::executeCommand(const QString &command)
         }
         else
         {
-            appendConsoleOutput("Conexiones máximas actuales: " + QString::number(FtpServer::getMaxConnections()));
+            appendConsoleOutput("Conexiones máximas actuales: " + QString::number(ftpThread->getMaxConnections()));
+        }
+    }
+    else if (cmd == "modeftp")
+    {
+        if (parts.size() > 1) {
+            QString mode = parts[1].toLower();
+            if (mode == "pasv" || mode == "port") {
+                ftpMode = mode;
+                if (ftpThread) ftpThread->setFtpMode(mode);
+                appendConsoleOutput("Modo FTP cambiado a: " + mode.toUpper());
+            } else {
+                appendConsoleOutput("Modo inválido. Usa: modeftp pasv | port");
+            }
+        } else {
+            appendConsoleOutput("Modo FTP actual: " + ftpMode.toUpper());
         }
     }
     else if (cmd == "ip")
@@ -591,6 +624,8 @@ void gestor::updateServerStatus(bool running)
 {
     ui->btnStartServer->setEnabled(!running);
     ui->btnStopServer->setEnabled(running);
+    ui->actionIniciar->setEnabled(!running);
+    ui->actionDetener->setEnabled(running);
     ui->statusbar->showMessage(running ? "Servidor activo" : "Servidor detenido");
 }
 
@@ -620,6 +655,27 @@ void gestor::appendToTabConsole(const QString &message)
     ui->txtConsoleOutput->append(message);
     QScrollBar *scrollBar = ui->txtConsoleOutput->verticalScrollBar();
     scrollBar->setValue(scrollBar->maximum());
+}
+
+void gestor::appendLogMessage(const QString &message)
+{
+    ui->txtLogs->appendPlainText(message);
+}
+
+void gestor::appendLogMessage(const QString &message, LogLevel level)
+{
+    // Reutilizar el método de una sola cadena
+    appendLogMessage(message);
+}
+
+void gestor::updateMonitor()
+{
+    if (ftpThread && ftpThread->isRunning()) {
+        int activeConnections = ftpThread->getActiveConnections();
+        ui->valueConexionesActivas->setText(QString::number(activeConnections));
+    } else {
+        ui->valueConexionesActivas->setText("0");
+    }
 }
 
 void gestor::fetchPublicIP()
@@ -1153,7 +1209,7 @@ void gestor::setupErrorHandling()
         [this](const ErrorInfo &error)
         { return recoverFromDatabaseError(error); });
 
-    // Registrar un error de prueba
+    // Registrar un mensaje informativo en el log para confirmar la inicialización del sistema de errores
     ErrorHandler::instance().logError(
         tr("Sistema de manejo de errores inicializado"),
         ErrorType::System,
@@ -1278,15 +1334,10 @@ bool gestor::recoverFromDatabaseError(const ErrorInfo &error)
     // Implementación de recuperación de errores de base de datos
     appendToTabLogs(tr("Intentando recuperación automática de error de base de datos: ") + error.message);
 
-    // Intentar reconectar a la base de datos
-    bool success = dbManager.reconnect();
-
-    if (success)
-    {
-        appendToTabLogs(tr("Reconexión a la base de datos exitosa"));
-        return true;
-    }
-
+    // La reconexión ahora es manejada por cada hilo individualmente.
+    // Esta función ahora solo registra el intento y retorna falso,
+    // ya que no hay una acción de recuperación global que tomar.
+    appendToTabLogs(tr("Error de base de datos registrado. La recuperación se intentará en la siguiente operación."));
     return false;
 }
 
@@ -1441,13 +1492,13 @@ void gestor::updateDynamicTexts()
 
 void gestor::createThemeMenu()
 {
-    if (!themeGroup)
-    {
-        themeGroup = new QActionGroup(this);
-        themeGroup->setExclusive(true);
-    }
+    // Evitar recrear si ya existe
+    if (themeMenu)
+        return;
 
     themeMenu = menuBar()->addMenu(tr("Apariencia"));
+    themeGroup = new QActionGroup(this);
+    themeGroup->setExclusive(true);
 
     QMap<QString, QString> themes;
     themes["light"] = tr("Tema Claro");
@@ -1548,4 +1599,33 @@ void gestor::showShortcutDialog()
 {
     ShortcutDialog dialog(shortcutManager, this);
     dialog.exec();
+}
+
+// ----------------------------------------------------------------------------------
+// Persistencia de configuración y base de datos
+
+void gestor::loadSettings()
+{
+    QSettings settings("GestorFTP", "GestorFTP");
+    restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
+    restoreState(settings.value("MainWindow/state").toByteArray());
+    rootDir = settings.value("Server/rootDir", QDir::homePath()).toString();
+}
+
+void gestor::saveSettings()
+{
+    QSettings settings("GestorFTP", "GestorFTP");
+    settings.setValue("MainWindow/geometry", saveGeometry());
+    settings.setValue("MainWindow/state", saveState());
+    settings.setValue("Server/rootDir", rootDir);
+}
+
+void gestor::initializeDatabase()
+{
+    if (!dbManager.isValid())
+    {
+        QMessageBox::critical(this,
+                              tr("Error de Base de Datos"),
+                              tr("No se pudo inicializar la base de datos."));
+    }
 }

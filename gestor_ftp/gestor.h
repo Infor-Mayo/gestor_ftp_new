@@ -37,7 +37,6 @@ public:
 
 signals:
     void errorOccurred(const QString &message);
-    void logMessage(const QString &message);
 
 public slots:
     void handleStartServer();
@@ -59,11 +58,21 @@ public slots:
     void appendToTabConsole(const QString &message);
     void changeLanguage(const QString &locale);
     void changeTheme(const QString &theme);
+    void appendLogMessage(const QString &message);
+    void appendLogMessage(const QString &message, LogLevel level);
+
+private slots:
+    void updateMonitor();
+    void on_btnActualizarEstadisticas_clicked();
+    void iconActivated(QSystemTrayIcon::ActivationReason reason);
+    void showShortcutDialog();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
+    static gestor* instance;
+    static void logMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
     Ui::gestor *ui;
     FtpServerThread *ftpThread;
     DatabaseManager dbManager;
@@ -139,11 +148,6 @@ private:
     bool recoverFromNetworkError(const ErrorInfo &error);
     bool recoverFromFileSystemError(const ErrorInfo &error);
     bool recoverFromDatabaseError(const ErrorInfo &error);
-
-private slots:
-    void on_btnActualizarEstadisticas_clicked();
-    void iconActivated(QSystemTrayIcon::ActivationReason reason);
-    void showShortcutDialog();
 
 private:
     const QMap<QString, QString> SUPPORTED_LANGUAGES = {

@@ -5,6 +5,7 @@
 #include <QMessageLogContext>
 #include <QFile>
 #include <QMutex>
+#include <QTextStream>
 
 // Niveles de log personalizados
 enum class LogLevel {
@@ -21,6 +22,7 @@ class Logger : public QObject
 public:
     static Logger& instance();
     static void init(QObject *receiver = nullptr, const QString& logFilePath = "logs/ftp_server.log");
+    static void cleanup();
     static void setReceiver(QObject *receiver);
     
     // Métodos para registrar mensajes con diferentes niveles
@@ -42,9 +44,14 @@ public:
 
 signals:
     void newLogMessage(QString message, LogLevel level);
+    void messageLogged(const QString &message);
+
+public slots:
 
 private:
     explicit Logger(QObject *parent = nullptr);
+    ~Logger(); // Destructor para limpiar recursos
+    
     static QObject *logReceiver;
     static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
     
@@ -53,6 +60,10 @@ private:
     
     // Método para verificar y rotar archivos de log si es necesario
     void checkAndRotateLogFiles();
+
+    // Helper para abrir y cerrar el archivo de log
+    bool openLogFile();
+    void closeFile();
     
     // Configuración
     QString m_logFilePath;
@@ -67,6 +78,7 @@ private:
     
     // Archivo de log actual
     QFile m_logFile;
+    QTextStream* m_logStream = nullptr;
 };
 
 #endif // LOGGER_H

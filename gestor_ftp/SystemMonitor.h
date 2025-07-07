@@ -24,4 +24,7 @@ private:
     }
     
     // Funciones específicas del sistema operativo...
+    qreal getCpuUsage();
+    qreal getMemoryUsage();
+    qreal getNetworkUsage();
 };

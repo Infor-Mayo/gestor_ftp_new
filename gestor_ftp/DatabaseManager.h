@@ -30,16 +30,15 @@ public:
     QHash<QString, QString> getAllUsers();
     QString getUserSalt(const QString &username);
     bool isValid() const;
-    void createTables();
+
     bool validateUser(const QString &username, const QString &passwordHash);
     const QString& getDatabasePath() const { return dbPath; }
-    bool reconnect();
 
     explicit DatabaseManager(QObject *parent = nullptr);
 
 private:
-    QSqlDatabase db;
-    mutable QMutex dbMutex;  // mutable para acceso en const methods
+    void createTables(QSqlDatabase &db);
+    mutable QRecursiveMutex dbMutex;  // Mutex para serializar el acceso al archivo SQLite
     QString dbPath;  // Añadir miembro para almacenar la ruta
 };
 

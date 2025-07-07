@@ -2,6 +2,9 @@
 #define SECURITYPOLICY_H
 
 #include <QObject>
+#include <QString>
+#include <QDebug>
+#include <QRegularExpression>
 #include <QHostAddress>
 #include <QSet>
 

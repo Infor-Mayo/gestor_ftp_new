@@ -12,7 +12,7 @@
 #include <QCoreApplication>
 #include <QThreadPool>
 #include <QThread>
-#include <QPluginLoader>
+
 
 void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) // Se omite el parámetro context intencionadamente
 {
@@ -91,16 +91,21 @@ int main(int argc, char *argv[])
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {
         const QString baseName = "gestor_ftp_" + QLocale(locale).name();
-        if (translator.load(":/i18n/" + baseName)) {
+        if (translator.load(baseName, a.applicationDirPath() + "/translations")) {
             a.installTranslator(&translator);
             break;
         }
     }
 
     // Conectar señales de logging directamente
+    // Conectar logs tanto a la consola como a la pestaña de logs
     QObject::connect(&Logger::instance(), &Logger::newLogMessage,
-                    &w, &gestor::appendConsoleOutput,
-                    Qt::QueuedConnection);
+                     &w, &gestor::appendConsoleOutput,
+                     Qt::QueuedConnection);
+    QObject::connect(&Logger::instance(), &Logger::newLogMessage,
+                     &w,
+                     [&w](const QString &msg, LogLevel){ w.appendLogMessage(msg); },
+                     Qt::QueuedConnection);
 
     // Cargar configuración
     QSettings settings("MiEmpresa", "GestorFTP");

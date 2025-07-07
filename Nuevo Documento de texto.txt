@@ -1,0 +1,67 @@
+1   QRecursiveMutex::tryLock(QDeadlineTimer)                                                                                                    0x7ffb110cde41 
+2   QRecursiveMutex::lock                                                                                              qmutex.h             189 0x7ff6a494f0e8 
+3   QMutexLocker<QRecursiveMutex>::QMutexLocker                                                                        qmutex.h             236 0x7ff6a494f0e8 
+4   DatabaseManager::getUserSalt                                                                                       DatabaseManager.cpp  132 0x7ff6a494f0e8 
+5   FtpClientHandler::handlePass                                                                                       FtpClientHandler.cpp 158 0x7ff6a4953eaf 
+6   FtpClientHandler::processCommand                                                                                   FtpClientHandler.cpp 108 0x7ff6a495a1db 
+7   FtpClientHandler::onReadyRead                                                                                      FtpClientHandler.cpp 94  0x7ff6a495ab81 
+8   z_adler32_combine                                                                                                                           0x7ffb1125f27e 
+9   QAbstractSocket::setSocketDescriptor(long long, QAbstractSocket::SocketState, QFlags<QIODeviceBase::OpenModeFlag>)                          0x7ffba8be01c0 
+10  QAbstractSocket::qt_metacall(QMetaObject::Call, int, void * *)                                                                              0x7ffba8be7b19 
+11  QApplicationPrivate::notify_helper(QObject *, QEvent *)                                                                                     0x7ffb889b62dc 
+12  QCoreApplication::notifyInternal2(QObject *, QEvent *)                                                                                      0x7ffb10f1270a 
+13  QEventDispatcherWin32Private::sendTimerEvent(int)                                                                                           0x7ffb110c8899 
+14  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618eb8 
+15  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618771 
+16  QEventDispatcherWin32::processEvents(QFlags<QEventLoop::ProcessEventsFlag>)                                                                 0x7ffb110c4842 
+17  QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>)                                                                                     0x7ffb10f1d77a 
+18  QThread::exec()                                                                                                                             0x7ffb110157a7 
+19  QThread::setTerminationEnabled(bool)                                                                                                        0x7ffb110cdb79 
+20  KERNEL32!BaseThreadInitThunk                                                                                                                0x7ffbdc54259d 
+... <More>
+
+
+1   QRecursiveMutex::tryLock(QDeadlineTimer)                                                                                                    0x7ffb110cde41 
+2   QRecursiveMutex::lock                                                                                              qmutex.h             189 0x7ff6a494f0e8 
+3   QMutexLocker<QRecursiveMutex>::QMutexLocker                                                                        qmutex.h             236 0x7ff6a494f0e8 
+4   DatabaseManager::getUserSalt                                                                                       DatabaseManager.cpp  132 0x7ff6a494f0e8 
+5   FtpClientHandler::handlePass                                                                                       FtpClientHandler.cpp 158 0x7ff6a4953eaf 
+6   FtpClientHandler::processCommand                                                                                   FtpClientHandler.cpp 108 0x7ff6a495a1db 
+7   FtpClientHandler::onReadyRead                                                                                      FtpClientHandler.cpp 94  0x7ff6a495ab81 
+8   z_adler32_combine                                                                                                                           0x7ffb1125f27e 
+9   QAbstractSocket::setSocketDescriptor(long long, QAbstractSocket::SocketState, QFlags<QIODeviceBase::OpenModeFlag>)                          0x7ffba8be01c0 
+10  QAbstractSocket::qt_metacall(QMetaObject::Call, int, void * *)                                                                              0x7ffba8be7b19 
+11  QApplicationPrivate::notify_helper(QObject *, QEvent *)                                                                                     0x7ffb889b62dc 
+12  QCoreApplication::notifyInternal2(QObject *, QEvent *)                                                                                      0x7ffb10f1270a 
+13  QEventDispatcherWin32Private::sendTimerEvent(int)                                                                                           0x7ffb110c8899 
+14  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618eb8 
+15  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618771 
+16  QEventDispatcherWin32::processEvents(QFlags<QEventLoop::ProcessEventsFlag>)                                                                 0x7ffb110c4842 
+17  QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>)                                                                                     0x7ffb10f1d77a 
+18  QThread::exec()                                                                                                                             0x7ffb110157a7 
+19  QThread::setTerminationEnabled(bool)                                                                                                        0x7ffb110cdb79 
+20  KERNEL32!BaseThreadInitThunk                                                                                                                0x7ffbdc54259d 
+... <More>
+
+
+1   QRecursiveMutex::tryLock(QDeadlineTimer)                                                                                                    0x7ffb110cde41 
+2   QRecursiveMutex::lock                                                                                              qmutex.h             189 0x7ff6a494f0e8 
+3   QMutexLocker<QRecursiveMutex>::QMutexLocker                                                                        qmutex.h             236 0x7ff6a494f0e8 
+4   DatabaseManager::getUserSalt                                                                                       DatabaseManager.cpp  132 0x7ff6a494f0e8 
+5   FtpClientHandler::handlePass                                                                                       FtpClientHandler.cpp 158 0x7ff6a4953eaf 
+6   FtpClientHandler::processCommand                                                                                   FtpClientHandler.cpp 108 0x7ff6a495a1db 
+7   FtpClientHandler::onReadyRead                                                                                      FtpClientHandler.cpp 94  0x7ff6a495ab81 
+8   z_adler32_combine                                                                                                                           0x7ffb1125f27e 
+9   QAbstractSocket::setSocketDescriptor(long long, QAbstractSocket::SocketState, QFlags<QIODeviceBase::OpenModeFlag>)                          0x7ffba8be01c0 
+10  QAbstractSocket::qt_metacall(QMetaObject::Call, int, void * *)                                                                              0x7ffba8be7b19 
+11  QApplicationPrivate::notify_helper(QObject *, QEvent *)                                                                                     0x7ffb889b62dc 
+12  QCoreApplication::notifyInternal2(QObject *, QEvent *)                                                                                      0x7ffb10f1270a 
+13  QEventDispatcherWin32Private::sendTimerEvent(int)                                                                                           0x7ffb110c8899 
+14  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618eb8 
+15  USER32!DispatchMessageW                                                                                                                     0x7ffbdc618771 
+16  QEventDispatcherWin32::processEvents(QFlags<QEventLoop::ProcessEventsFlag>)                                                                 0x7ffb110c4842 
+17  QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>)                                                                                     0x7ffb10f1d77a 
+18  QThread::exec()                                                                                                                             0x7ffb110157a7 
+19  QThread::setTerminationEnabled(bool)                                                                                                        0x7ffb110cdb79 
+20  KERNEL32!BaseThreadInitThunk                                                                                                                0x7ffbdc54259d 
+... <More>

@@ -1,25 +1,37 @@
 #include "FtpServer.h"
 #include "FtpClientHandler.h"
+
 #include <QDebug>
 #include <QThread>
 
-// Inicialización de variables estáticas
-QAtomicInteger<int> FtpServer::activeConnections(0);
-int FtpServer::maxConnections = 50;
-bool FtpServer::m_allowAnonymous = false;
-
 FtpServer::FtpServer(const QString &rootDir, const QHash<QString, QString> &users, quint16 port, QObject *parent)
-    : QTcpServer(parent), 
-      rootDir(rootDir), 
-      users(users),
-      activeHandlers()
-#ifdef HAVE_SSL
-      , m_sslEnabled(false)
-#endif
+    : QTcpServer(parent), m_rootDir(rootDir), m_users(users)
 {
     if (!listen(QHostAddress::Any, port)) {
         qWarning() << "No se pudo iniciar el servidor FTP:" << errorString();
     }
+}
+
+QString FtpServer::getRootDir() const
+{
+    return m_rootDir;
+}
+
+void FtpServer::setRootDir(const QString &newRootDir)
+{
+    m_rootDir = newRootDir;
+    qInfo() << (QString("Directorio raíz cambiado a: %1").arg(newRootDir));
+}
+
+void FtpServer::refreshUsers(const QHash<QString, QString> &newUsers)
+{
+    m_users = newUsers;
+    qInfo() << ("Lista de usuarios actualizada.");
+}
+
+bool FtpServer::isUserValid(const QString &username, const QString &password) const
+{
+    return m_users.contains(username) && m_users.value(username) == password;
 }
 
 FtpServer::~FtpServer()
@@ -56,11 +68,21 @@ void FtpServer::stop()
     }
 }
 
+int FtpServer::getActiveConnections() const
+{
+    return activeConnections.loadAcquire();
+}
+
 void FtpServer::setMaxConnections(int max)
 {
     if (max > 0) {
         maxConnections = max;
     }
+}
+
+int FtpServer::getMaxConnections() const
+{
+    return maxConnections;
 }
 
 void FtpServer::setAllowAnonymous(bool allow)
@@ -69,44 +91,46 @@ void FtpServer::setAllowAnonymous(bool allow)
     qInfo() << "Modo anónimo" << (allow ? "activado" : "desactivado");
 }
 
+bool FtpServer::allowAnonymous() const
+{
+    return m_allowAnonymous;
+}
+
 void FtpServer::incomingConnection(qintptr socketDescriptor)
 {
-    if (activeConnections.fetchAndAddRelaxed(0) >= maxConnections) {
+    if (activeConnections.loadAcquire() >= maxConnections) {
         QTcpSocket tempSocket;
-        tempSocket.setSocketDescriptor(socketDescriptor);
-        tempSocket.write("421 Too many connections, try again later\r\n");
-        tempSocket.disconnectFromHost();
-        return;
-    }
-
-    QTcpSocket *clientSocket = new QTcpSocket(this);
-    if (!clientSocket->setSocketDescriptor(socketDescriptor)) {
-        delete clientSocket;
+        if (tempSocket.setSocketDescriptor(socketDescriptor)) {
+            tempSocket.write("421 Too many connections, try again later.\r\n");
+            tempSocket.disconnectFromHost();
+            tempSocket.waitForDisconnected(1000);
+        }
         return;
     }
 
     activeConnections.fetchAndAddRelaxed(1);
-    
-    FtpClientHandler *handler = new FtpClientHandler(clientSocket, users, rootDir, this);
-    
-    // Almacenar el handler con su IP
-    QString clientIp = clientSocket->peerAddress().toString();
-    activeHandlers[clientIp] = handler;
-    
-    connect(handler, &FtpClientHandler::finished, [this, handler, clientIp]() {
+
+    QThread *thread = new QThread(this);
+    FtpClientHandler *handler = new FtpClientHandler(socketDescriptor, this);
+    handler->moveToThread(thread);
+
+    // Conectar señales para la gestión del ciclo de vida
+    connect(thread, &QThread::started, handler, &FtpClientHandler::process);
+    connect(handler, &FtpClientHandler::established, this, &FtpServer::onClientEstablished);
+    connect(handler, &FtpClientHandler::finished, this, &FtpServer::onClientFinished);
+    connect(handler, &FtpClientHandler::finished, thread, &QThread::quit);
+    connect(handler, &FtpClientHandler::finished, [this]() {
         activeConnections.fetchAndAddRelaxed(-1);
-        activeHandlers.remove(clientIp);
-        handler->deleteLater();
     });
-    
-    connect(handler, &FtpClientHandler::transferProgress, 
-            [this](qint64 bytes, qint64) {
-                totalBytesTransferred.fetch_add(bytes);
-            });
-    
-    emit logMessage(QString("Nueva conexión desde %1:%2")
-                   .arg(clientSocket->peerAddress().toString())
-                   .arg(clientSocket->peerPort()));
+    connect(handler, &FtpClientHandler::finished, handler, &FtpClientHandler::deleteLater);
+    connect(thread, &QThread::finished, thread, &QThread::deleteLater);
+
+    // Conectar para estadísticas
+    connect(handler, &FtpClientHandler::transferProgress, this, [this](qint64 bytes, qint64) {
+        totalBytesTransferred.fetch_add(bytes, std::memory_order_relaxed);
+    });
+
+    thread->start();
 }
 
 QStringList FtpServer::getConnectedClients() const {
@@ -128,9 +152,22 @@ void FtpServer::disconnectClient(const QString& ip) {
     if (it != activeHandlers.end()) {
         FtpClientHandler* handler = it.value();
         if (handler) {
-            emit logMessage(QString("Desconectando cliente: %1").arg(ip));
+            qInfo() << (QString("Desconectando cliente: %1").arg(ip));
             handler->forceDisconnect();
         }
+    }
+}
+
+void FtpServer::onClientEstablished(const QString &clientInfo, FtpClientHandler *handler)
+{
+    activeHandlers.insert(clientInfo, handler);
+    qInfo() << QString("Cliente %1 registrado y listo.").arg(clientInfo);
+}
+
+void FtpServer::onClientFinished(const QString &clientInfo)
+{
+    if (activeHandlers.remove(clientInfo)) {
+        qInfo() << QString("Cliente %1 eliminado del registro.").arg(clientInfo);
     }
 }
 
@@ -140,13 +177,13 @@ bool FtpServer::enableSsl(const QString &certificateFile, const QString &private
     // Cargar el certificado
     QFile certFile(certificateFile);
     if (!certFile.open(QIODevice::ReadOnly)) {
-        emit logMessage(QString("Error al abrir el archivo de certificado: %1").arg(certificateFile));
+        qInfo() << (QString("Error al abrir el archivo de certificado: %1").arg(certificateFile));
         return false;
     }
     
     QSslCertificate cert(&certFile, QSsl::Pem);
     if (cert.isNull()) {
-        emit logMessage("El certificado no es válido");
+        qInfo() << ("El certificado no es válido");
         return false;
     }
     m_certificate = cert;
@@ -155,13 +192,13 @@ bool FtpServer::enableSsl(const QString &certificateFile, const QString &private
     // Cargar la clave privada
     QFile keyFile(privateKeyFile);
     if (!keyFile.open(QIODevice::ReadOnly)) {
-        emit logMessage(QString("Error al abrir el archivo de clave privada: %1").arg(privateKeyFile));
+        qInfo() << (QString("Error al abrir el archivo de clave privada: %1").arg(privateKeyFile));
         return false;
     }
     
     QSslKey key(&keyFile, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, privateKeyPassword.toUtf8());
     if (key.isNull()) {
-        emit logMessage("La clave privada no es válida");
+        qInfo() << ("La clave privada no es válida");
         return false;
     }
     m_privateKey = key;
@@ -174,13 +211,13 @@ bool FtpServer::enableSsl(const QString &certificateFile, const QString &private
     m_sslConfiguration.setProtocol(QSsl::TlsV1_2OrLater);
     
     m_sslEnabled = true;
-    emit logMessage("SSL/TLS habilitado para conexiones seguras");
+    qInfo() << ("SSL/TLS habilitado para conexiones seguras");
     return true;
 }
 
 void FtpServer::disableSsl() {
     m_sslEnabled = false;
-    emit logMessage("SSL/TLS deshabilitado");
+    qInfo() << ("SSL/TLS deshabilitado");
 }
 
 QString FtpServer::getSslCertificateInfo() const {
@@ -197,51 +234,51 @@ QString FtpServer::getSslCertificateInfo() const {
 // Implementación de comandos FTPS
 bool FtpServer::handleAuthCommand(FtpClientHandler* handler, const QString& arg) {
     if (!m_sslEnabled) {
-        emit logMessage("Comando AUTH recibido pero SSL no está habilitado");
+        qInfo() << ("Comando AUTH recibido pero SSL no está habilitado");
         return false;
     }
     
     if (arg.toUpper() == "TLS" || arg.toUpper() == "SSL") {
-        emit logMessage(QString("Iniciando negociación %1").arg(arg.toUpper()));
+        qInfo() << (QString("Iniciando negociación %1").arg(arg.toUpper()));
         return true;
     }
     
-    emit logMessage(QString("Método AUTH no soportado: %1").arg(arg));
+    qInfo() << (QString("Método AUTH no soportado: %1").arg(arg));
     return false;
 }
 
 bool FtpServer::handlePbszCommand(FtpClientHandler* handler, const QString& arg) {
     if (!m_sslEnabled) {
-        emit logMessage("Comando PBSZ recibido pero SSL no está habilitado");
+        qInfo() << ("Comando PBSZ recibido pero SSL no está habilitado");
         return false;
     }
     
     bool ok;
     arg.toULongLong(&ok);
     if (!ok) {
-        emit logMessage(QString("Valor PBSZ inválido: %1").arg(arg));
+        qInfo() << (QString("Valor PBSZ inválido: %1").arg(arg));
         return false;
     }
     
-    emit logMessage("Tamaño del buffer de protección establecido");
+    qInfo() << ("Tamaño del buffer de protección establecido");
     return true;
 }
 
 bool FtpServer::handleProtCommand(FtpClientHandler* handler, const QString& arg) {
     if (!m_sslEnabled) {
-        emit logMessage("Comando PROT recibido pero SSL no está habilitado");
+        qInfo() << ("Comando PROT recibido pero SSL no está habilitado");
         return false;
     }
     
     if (arg.toUpper() == "P") {
-        emit logMessage("Canal de datos: Privado (cifrado)");
+        qInfo() << ("Canal de datos: Privado (cifrado)");
         return true;
     } else if (arg.toUpper() == "C") {
-        emit logMessage("Canal de datos: Claro (sin cifrar)");
+        qInfo() << ("Canal de datos: Claro (sin cifrar)");
         return true;
     }
     
-    emit logMessage(QString("Nivel de protección no soportado: %1").arg(arg));
+    qInfo() << (QString("Nivel de protección no soportado: %1").arg(arg));
     return false;
 }
 #endif

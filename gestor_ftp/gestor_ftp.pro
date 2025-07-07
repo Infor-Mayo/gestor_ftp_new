@@ -57,9 +57,12 @@ debug {
     QMAKE_POST_LINK += $(COPY_FILE) $$shell_path($$TRANSLATIONS_DIR/*.qm) $$shell_path($$DEBUG_DIR/translations) $$escape_expand(\\n\\t)
 }
 release {
-    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_path($$RELEASE_DIR/translations) $$escape_expand(\\n\\t)
+    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_path($$RELEASE_DIR/translations) $$escape_expand(\n\t)
     QMAKE_POST_LINK += $(COPY_FILE) $$shell_path($$TRANSLATIONS_DIR/*.qm) $$shell_path($$RELEASE_DIR/translations)
 }
+
+# Enlazar librería de sockets de Windows
+LIBS += -lws2_32
 
 # Translations
 TRANSLATIONS += \

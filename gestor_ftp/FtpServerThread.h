@@ -22,7 +22,7 @@ public:
     }
 
     int getActiveConnections() const {
-        return server ? FtpServer::getActiveConnections() : 0;
+        return server ? server->getActiveConnections() : 0;
     }
     
     int getActiveTransfers() const {
@@ -30,7 +30,7 @@ public:
     }
 
     void setMaxConnections(int max) {
-        if (server) FtpServer::setMaxConnections(max);
+        if (server) server->setMaxConnections(max);
     }
 
     bool isRunning() const { 
@@ -71,7 +71,7 @@ public:
     }
 
     int getMaxConnections() const {
-        return server ? FtpServer::getMaxConnections() : 0;
+        return server ? server->getMaxConnections() : 0;
     }
 
     qint64 getTotalTransferred() const {
@@ -97,11 +97,14 @@ signals:
     void serverStarted(const QString &address, quint16 port);
     void serverStopped();
     void error(const QString &error);
-    void logMessage(const QString &message);
     void errorOccurred(const QString &message);
 
 protected:
     void run() override;
+
+public:
+    void setFtpMode(const QString& mode) { ftpMode = mode; }
+    QString getFtpMode() const { return ftpMode; }
 
 private:
     QString rootDir;
@@ -109,6 +112,7 @@ private:
     int port;
     FtpServer *server;
     qint64 startTime;
+    QString ftpMode = "pasv";
 };
 
 #endif // FTPSERVERTHREAD_H

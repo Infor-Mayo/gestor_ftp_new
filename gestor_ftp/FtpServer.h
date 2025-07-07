@@ -8,6 +8,7 @@
 #include <QHostAddress>
 #include <QAtomicInteger>
 #include <atomic>
+#include "DatabaseManager.h"
 
 #ifdef HAVE_SSL
 #include <QSslSocket>
@@ -18,6 +19,7 @@
 
 // Forward declarations
 class FtpClientHandler;
+class DatabaseManager;
 
 class FtpServer : public QTcpServer {
     Q_OBJECT
@@ -25,6 +27,11 @@ class FtpServer : public QTcpServer {
 public:
     explicit FtpServer(const QString &rootDir, const QHash<QString, QString> &users, quint16 port, QObject *parent = nullptr);
     ~FtpServer();
+    QString getRootDir() const;
+    void setRootDir(const QString &newRootDir);
+    void refreshUsers(const QHash<QString, QString> &newUsers);
+    bool isUserValid(const QString &username, const QString &password) const;
+    int getActiveConnections() const;
 
     void start();
     void stop();
@@ -33,20 +40,17 @@ public:
     quint16 serverPort() const { return QTcpServer::serverPort(); }
 
     // Gestión de conexiones
-    static int getActiveConnections() { return activeConnections.fetchAndAddRelaxed(0); }
-    static void setMaxConnections(int max);
-    static int getMaxConnections() { return maxConnections; }
+    void setMaxConnections(int max);
+    int getMaxConnections() const;
     qint64 getTotalBytesTransferred() const { return totalBytesTransferred.load(); }
     int getActiveTransfers() const;
     int getUploadCount() const { return uploadCount.load(); }
     int getDownloadCount() const { return downloadCount.load(); }
 
     // Configuración
-    static bool allowAnonymous() { return m_allowAnonymous; }
-    static void setAllowAnonymous(bool allow);
-    void setRootDir(const QString &newRootDir) { rootDir = newRootDir; }
-    QString getRootDir() const { return rootDir; }
-    void refreshUsers(const QHash<QString, QString>& newUsers) { users = newUsers; }
+    bool allowAnonymous() const;
+    void setAllowAnonymous(bool allow);
+
     QString getStatus() const { return isListening() ? "Activo" : "Inactivo"; }
     
 #ifdef HAVE_SSL
@@ -79,24 +83,27 @@ public:
     QHash<QString, FtpClientHandler*> getActiveHandlers() const { return activeHandlers; }
 
 signals:
-    void logMessage(const QString &message);
     void errorOccurred(const QString &message);
+
+private slots:
+    void onClientEstablished(const QString &clientInfo, FtpClientHandler *handler);
+    void onClientFinished(const QString &clientInfo);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 
 private:
-    static QAtomicInteger<int> activeConnections;
-    static int maxConnections;
-    static bool m_allowAnonymous;
+    QAtomicInteger<int> activeConnections{0};
+    int maxConnections = 50; // Valor por defecto
+    bool m_allowAnonymous = false; // Valor por defecto
     std::atomic<qint64> totalBytesTransferred{0};
     std::atomic<int> activeTransfers{0};
     std::atomic<int> uploadCount{0};
     std::atomic<int> downloadCount{0};
-    QString rootDir;
-    QHash<QString, QString> users;
+    QString m_rootDir;
+    QHash<QString, QString> m_users;
     QHash<QString, FtpClientHandler*> activeHandlers;  // IP -> Handler
-    
+
 #ifdef HAVE_SSL
     // Configuración SSL/TLS
     bool m_sslEnabled;

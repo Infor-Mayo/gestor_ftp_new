@@ -1,210 +1,185 @@
 #include "Logger.h"
 #include <QTextStream>
 #include <QDateTime>
-#include <QHostAddress>
-#include <QMetaObject>
-#include <QRegularExpression>
 #include <QDir>
 #include <QFileInfo>
+#include <QDebug>
 
 QObject* Logger::logReceiver = nullptr;
 
-Logger::Logger(QObject *parent) : QObject(parent), 
+Logger::Logger(QObject *parent) : QObject(parent),
     m_logLevel(LogLevel::INFO),
-    m_maxLogFileSize(10 * 1024 * 1024), // 10 MB por defecto
-    m_maxLogFiles(5),                   // 5 archivos de rotación por defecto
+    m_maxLogFileSize(10 * 1024 * 1024), // 10 MB
+    m_maxLogFiles(5),
     m_fileLoggingEnabled(true),
-    m_consoleLoggingEnabled(true) {
+    m_consoleLoggingEnabled(true),
+    m_logStream(nullptr) {
+}
+
+Logger::~Logger() {
+    QMutexLocker locker(&m_fileMutex);
+    closeFile();
 }
 
 Logger& Logger::instance() {
-    static Logger instance;
-    return instance;
+    static Logger loggerInstance;
+    return loggerInstance;
 }
 
 void Logger::init(QObject *receiver, const QString& logFilePath) {
-    logReceiver = receiver;
-    qInstallMessageHandler(messageHandler);
-    
-    // Configurar el archivo de log
+    instance().setReceiver(receiver);
     instance().m_logFilePath = logFilePath;
-    
-    // Crear el directorio para los logs si no existe
-    QFileInfo fileInfo(logFilePath);
-    QDir dir = fileInfo.dir();
-    if (!dir.exists()) {
-        dir.mkpath(".");
+
+
+    if (instance().m_fileLoggingEnabled) {
+        QMutexLocker locker(&instance().m_fileMutex);
+        instance().openLogFile();
     }
-    
-    // Abrir el archivo de log
-    instance().m_logFile.setFileName(logFilePath);
 }
 
-// Método ya definido anteriormente
+void Logger::setReceiver(QObject *receiver) {
+    logReceiver = receiver;
+}
 
 void Logger::messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
-    // Convertir QtMsgType a LogLevel
     LogLevel level;
     switch (type) {
-        case QtDebugMsg:
-            level = LogLevel::DEBUG;
-            break;
-        case QtInfoMsg:
-            level = LogLevel::INFO;
-            break;
-        case QtWarningMsg:
-            level = LogLevel::WARNING;
-            break;
-        case QtCriticalMsg:
-            level = LogLevel::ERROR;
-            break;
-        case QtFatalMsg:
-            level = LogLevel::CRITICAL;
-            break;
-        default:
-            level = LogLevel::INFO;
+        case QtDebugMsg:    level = LogLevel::DEBUG; break;
+        case QtInfoMsg:     level = LogLevel::INFO; break;
+        case QtWarningMsg:  level = LogLevel::WARNING; break;
+        case QtCriticalMsg: level = LogLevel::ERROR; break;
+        case QtFatalMsg:    level = LogLevel::CRITICAL; break;
+        default:            level = LogLevel::INFO;
     }
-    
-    // Obtener información adicional de diagnóstico
-    QString component;
-    if (context.file) {
-        component = QString("%1:%2").arg(context.file).arg(context.line);
+
+    if (level < instance().m_logLevel) {
+        return;
     }
+
+    QString component = context.file ? QFileInfo(context.file).fileName() : "N/A";
     
-    // Formatear el mensaje
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
     QString levelStr;
     switch (level) {
-        case LogLevel::DEBUG: levelStr = "DEBUG"; break;
-        case LogLevel::INFO: levelStr = "INFO"; break;
+        case LogLevel::DEBUG:   levelStr = "DEBUG"; break;
+        case LogLevel::INFO:    levelStr = "INFO"; break;
         case LogLevel::WARNING: levelStr = "WARNING"; break;
-        case LogLevel::ERROR: levelStr = "ERROR"; break;
-        case LogLevel::CRITICAL: levelStr = "CRITICAL"; break;
+        case LogLevel::ERROR:   levelStr = "ERROR"; break;
+        case LogLevel::CRITICAL:levelStr = "CRITICAL"; break;
     }
-    
-    QString fullMessage;
-    if (!component.isEmpty()) {
-        fullMessage = QString("[%1] [%2] [%3] %4")
-            .arg(timestamp)
-            .arg(levelStr)
-            .arg(component)
-            .arg(msg);
-    } else {
-        fullMessage = QString("[%1] [%2] %3")
-            .arg(timestamp)
-            .arg(levelStr)
-            .arg(msg);
-    }
-    
-    // Enviar el mensaje a la instancia del logger
-    if (level >= instance().m_logLevel) {
-        // Escribir en archivo si está habilitado
-        if (instance().m_fileLoggingEnabled) {
-            instance().writeToLogFile(fullMessage, level);
-        }
-        
-        // Enviar a la interfaz de usuario si hay un receptor
-        if (logReceiver && instance().m_consoleLoggingEnabled) {
-            // Determinar si el mensaje es de cliente (formato específico IPv6)
-            bool isClientMessage = msg.contains("[::ffff:");
-            
-            if (isClientMessage) {
-                // Enviar al área de logs (tabLogs)
-                QMetaObject::invokeMethod(logReceiver, "appendToTabLogs", 
-                    Qt::QueuedConnection, Q_ARG(QString, fullMessage));
-            } else {
-                // Enviar al área de consola (tabConsole)
-                QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                    Qt::QueuedConnection, Q_ARG(QString, fullMessage));
-            }
-            
-            // Emitir señal con el mensaje y nivel
-            emit instance().newLogMessage(fullMessage, level);
-        }
+
+    QString fullMessage = QString("[%1] [%2] [%3:%4] %5")
+        .arg(timestamp)
+        .arg(levelStr)
+        .arg(component)
+        .arg(context.line)
+        .arg(msg);
+
+    instance().writeToLogFile(fullMessage, level);
+
+    if (logReceiver && instance().m_consoleLoggingEnabled) {
+        emit instance().newLogMessage(fullMessage, level);
     }
 }
 
-void Logger::writeToLogFile(const QString& formattedMessage, LogLevel /* level */) {
-    QMutexLocker locker(&m_fileMutex);
-    
-    // Verificar y rotar los archivos de log si es necesario
-    checkAndRotateLogFiles();
-    
-    // Abrir el archivo en modo append
-    if (m_logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-        QTextStream stream(&m_logFile);
-        stream << formattedMessage << "\n";
+bool Logger::openLogFile() {
+    // This function must be called from within a mutex lock
+    closeFile();
+
+    QFileInfo fileInfo(m_logFilePath);
+    QDir dir = fileInfo.dir();
+    if (!dir.exists()) {
+        if (!dir.mkpath(".")) {
+            qWarning("Logger: Could not create log directory: %s", qPrintable(dir.path()));
+            return false;
+        }
+    }
+
+    m_logFile.setFileName(m_logFilePath);
+    if (!m_logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        qWarning("Logger: Could not open log file for writing: %s", qPrintable(m_logFilePath));
+        return false;
+    }
+
+    m_logStream = new QTextStream(&m_logFile);
+    return true;
+}
+
+void Logger::closeFile() {
+    // This function must be called from within a mutex lock
+    if (m_logStream) {
+        m_logStream->flush();
+        delete m_logStream;
+        m_logStream = nullptr;
+    }
+    if (m_logFile.isOpen()) {
         m_logFile.close();
     }
 }
 
-void Logger::checkAndRotateLogFiles() {
-    // Verificar si el archivo existe y su tamaño
-    QFileInfo fileInfo(m_logFilePath);
+void Logger::writeToLogFile(const QString& formattedMessage, LogLevel level) {
+    Q_UNUSED(level);
+    // Emitir la señal para que la GUI la reciba, sin importar otras configuraciones.
+    emit messageLogged(formattedMessage);
+
+    if (!m_fileLoggingEnabled) return;
     
-    if (fileInfo.exists() && fileInfo.size() >= m_maxLogFileSize) {
+    QMutexLocker locker(&m_fileMutex);
+
+    if (!m_logFile.isOpen() && !openLogFile()) {
+        return; // Failed to open log file
+    }
+
+    checkAndRotateLogFiles();
+
+    if (m_logStream) {
+        (*m_logStream) << formattedMessage << Qt::endl;
+        m_logStream->flush();
+    }
+}
+
+void Logger::checkAndRotateLogFiles() {
+    // This function must be called from within a mutex lock
+    if (m_logFile.isOpen() && m_logFile.size() >= m_maxLogFileSize) {
         rotateLogFiles();
     }
 }
 
 void Logger::rotateLogFiles() {
-    // Cerrar el archivo si está abierto
-    if (m_logFile.isOpen()) {
-        m_logFile.close();
-    }
-    
-    // Obtener información del directorio y nombre base del archivo
+    // This function must be called from within a mutex lock
+    closeFile();
+
     QFileInfo fileInfo(m_logFilePath);
     QString baseName = fileInfo.completeBaseName();
     QString suffix = fileInfo.suffix();
-    QString dirPath = fileInfo.path();
-    
-    // Eliminar el archivo más antiguo si se alcanzó el límite
-    QString oldestFile = QString("%1/%2.%3.%4")
-        .arg(dirPath)
-        .arg(baseName)
-        .arg(m_maxLogFiles - 1)
-        .arg(suffix);
-    
-    QFile oldFile(oldestFile);
-    if (oldFile.exists()) {
-        oldFile.remove();
+    QDir dir = fileInfo.dir();
+
+    // Delete the oldest log file, if it exists.
+    QString oldestLog = dir.filePath(QString("%1.%2.%3").arg(baseName, QString::number(m_maxLogFiles - 1), suffix));
+    if (QFile::exists(oldestLog)) {
+        QFile::remove(oldestLog);
     }
-    
-    // Rotar los archivos existentes
+
+    // Rotate intermediate log files.
     for (int i = m_maxLogFiles - 2; i >= 0; --i) {
-        QString oldName = QString("%1/%2.%3.%4")
-            .arg(dirPath)
-            .arg(baseName)
-            .arg(i)
-            .arg(suffix);
-        
-        QString newName = QString("%1/%2.%3.%4")
-            .arg(dirPath)
-            .arg(baseName)
-            .arg(i + 1)
-            .arg(suffix);
-        
-        QFile file(oldName);
-        if (file.exists()) {
-            QFile::remove(newName); // Eliminar el destino si existe
-            file.rename(newName);
+        QString currentLog = dir.filePath(QString("%1.%2.%3").arg(baseName, QString::number(i), suffix));
+        QString nextLog = dir.filePath(QString("%1.%2.%3").arg(baseName, QString::number(i + 1), suffix));
+        if (QFile::exists(currentLog)) {
+            QFile::rename(currentLog, nextLog);
         }
     }
-    
-    // Renombrar el archivo actual
-    QString newName = QString("%1/%2.0.%3")
-        .arg(dirPath)
-        .arg(baseName)
-        .arg(suffix);
-    
-    QFile::rename(m_logFilePath, newName);
-    
-    // Crear un nuevo archivo de log
-    m_logFile.setFileName(m_logFilePath);
+
+    // Rename the current log file to be the first rotated one.
+    QString firstRotatedLog = dir.filePath(QString("%1.0.%2").arg(baseName, suffix));
+    if (QFile::exists(m_logFilePath)) {
+        QFile::rename(m_logFilePath, firstRotatedLog);
+    }
+
+    // Re-open the main log file (which will create a new, empty one).
+    openLogFile();
 }
 
-// Métodos para registrar mensajes con diferentes niveles
+// Convenience methods
 void Logger::debug(const QString& message, const QString& component) {
     if (m_logLevel <= LogLevel::DEBUG) {
         QString formattedMessage;

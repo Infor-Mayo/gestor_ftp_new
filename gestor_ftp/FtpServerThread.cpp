@@ -21,13 +21,12 @@ void FtpServerThread::run()
 {
     server = new FtpServer(rootDir, users, port, nullptr);
     
-    connect(server, &FtpServer::logMessage, this, &FtpServerThread::logMessage);
     connect(server, &FtpServer::errorOccurred, this, &FtpServerThread::errorOccurred);
     
     if (server->isListening()) {
         startTime = QDateTime::currentSecsSinceEpoch();
         emit serverStarted(server->serverAddress().toString(), server->serverPort());
-        emit logMessage(QString("Servidor FTP iniciado en %1:%2")
+        qInfo() << (QString("Servidor FTP iniciado en %1:%2")
                        .arg(server->serverAddress().toString())
                        .arg(server->serverPort()));
     } else {
