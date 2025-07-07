@@ -99,13 +99,14 @@ int main(int argc, char *argv[])
 
     // Conectar señales de logging directamente
     // Conectar logs tanto a la consola como a la pestaña de logs
-    QObject::connect(&Logger::instance(), &Logger::newLogMessage,
-                     &w, &gestor::appendConsoleOutput,
-                     Qt::QueuedConnection);
+    // Enviar todos los logs únicamente a la pestaña "Logs del Servidor"
     QObject::connect(&Logger::instance(), &Logger::newLogMessage,
                      &w,
                      [&w](const QString &msg, LogLevel){ w.appendLogMessage(msg); },
                      Qt::QueuedConnection);
+
+    // Desactivar salida a consola para evitar duplicados
+    Logger::instance().enableConsoleLogging(false);
 
     // Cargar configuración
     QSettings settings("MiEmpresa", "GestorFTP");

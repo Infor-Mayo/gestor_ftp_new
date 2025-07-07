@@ -77,7 +77,7 @@ void Logger::messageHandler(QtMsgType type, const QMessageLogContext &context, c
 
     instance().writeToLogFile(fullMessage, level);
 
-    if (logReceiver && instance().m_consoleLoggingEnabled) {
+    if (logReceiver) {
         emit instance().newLogMessage(fullMessage, level);
     }
 }
