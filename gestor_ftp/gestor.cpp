@@ -664,6 +664,7 @@ void gestor::appendLogMessage(const QString &message)
 
 void gestor::appendLogMessage(const QString &message, LogLevel level)
 {
+    Q_UNUSED(level); // Suprimir warning de parámetro no usado
     // Reutilizar el método de una sola cadena
     appendLogMessage(message);
 }

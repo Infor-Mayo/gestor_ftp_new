@@ -21,7 +21,7 @@ class Logger : public QObject
     Q_OBJECT
 public:
     static Logger& instance();
-    static void init(QObject *receiver = nullptr, const QString& logFilePath = "logs/ftp_server.log");
+    static void init(QObject *receiver = nullptr, const QString& logFilePath = QString());
     static void cleanup();
     static void setReceiver(QObject *receiver);
     

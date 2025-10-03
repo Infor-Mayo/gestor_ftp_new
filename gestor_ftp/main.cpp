@@ -12,6 +12,7 @@
 #include <QCoreApplication>
 #include <QThreadPool>
 #include <QThread>
+#include <QStandardPaths>
 
 
 void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) // Se omite el parámetro context intencionadamente
@@ -37,14 +38,15 @@ void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &m
         break;
     }
 
-    // Asegurar que el directorio logs existe
+    // Asegurar que el directorio logs existe en la ubicación correcta
+    QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
     QDir dir;
-    if (!dir.exists("logs")) {
-        dir.mkpath("logs");
+    if (!dir.exists(logDir)) {
+        dir.mkpath(logDir);
     }
 
-    // Escribir al archivo
-    QFile outFile("logs/ftpserver.log");
+    // Escribir al archivo en ubicación portable
+    QFile outFile(logDir + "/ftpserver.log");
     outFile.open(QIODevice::WriteOnly | QIODevice::Append);
     QTextStream ts(&outFile);
     ts << txt << Qt::endl;
@@ -91,7 +93,13 @@ int main(int argc, char *argv[])
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {
         const QString baseName = "gestor_ftp_" + QLocale(locale).name();
-        if (translator.load(baseName, a.applicationDirPath() + "/translations")) {
+        // Intentar cargar desde recursos embebidos primero
+        if (translator.load(":translations/" + baseName + ".qm")) {
+            a.installTranslator(&translator);
+            break;
+        }
+        // Fallback: intentar desde directorio de aplicación
+        else if (translator.load(baseName, a.applicationDirPath() + "/translations")) {
             a.installTranslator(&translator);
             break;
         }

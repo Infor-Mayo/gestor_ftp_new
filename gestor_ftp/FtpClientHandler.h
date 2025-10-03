@@ -79,6 +79,11 @@ public:
     void sendData(const std::string& data);
     void closeConnection();
     bool receiveFile(QFile& file, QTcpSocket* socket);
+    
+    // Configuración de límite de velocidad
+    void setSpeedLimit(qint64 bytesPerSecond) { speedLimit = bytesPerSecond; }
+    qint64 getSpeedLimit() const { return speedLimit; }
+    qint64 getBytesTransferred() const { return bytesTransferred; }
 
 signals:
     void established(const QString &clientInfo, FtpClientHandler *handler);

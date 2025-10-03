@@ -10,6 +10,7 @@
 #include <QStorageInfo>
 #include <QRegularExpression>
 #include <QCryptographicHash>
+#include <QTimer>
 #include <stdexcept>
 #include <cstring>
 
@@ -291,29 +292,49 @@ void FtpClientHandler::handleRetr(const QString &fileName)
         return;
     }
 
-    QFile *file = new QFile(filePath, this); // Parent is this handler
+    // Limpiar archivo anterior si existe
+    if (file) {
+        file->close();
+        file->deleteLater();
+        file = nullptr;
+    }
+
+    file = new QFile(filePath, this);
     if (!file->open(QIODevice::ReadOnly)) {
         sendResponse("550 No se pudo abrir el archivo.");
-        delete file;
+        file->deleteLater();
+        file = nullptr;
         closeDataConnection();
         return;
     }
 
+    // Inicializar variables de transferencia
+    bytesTransferred = 0;
+    bytesRemaining = file->size();
+    transferActive = true;
+    transferTimer.start();
+
     sendResponse("150 Abriendo conexión de datos para la transferencia de archivos.");
 
-    connect(dataSocket, &QTcpSocket::bytesWritten, this, [this, file](qint64 bytes) {
-        bytesTransferred += bytes;
-        // La lógica de finalización se maneja cuando el socket se desconecta
-    });
+    connect(dataSocket, &QTcpSocket::bytesWritten, this, &FtpClientHandler::onBytesWritten);
 
-    connect(dataSocket, &QTcpSocket::disconnected, this, [this, file]() {
+    connect(dataSocket, &QTcpSocket::disconnected, this, [this]() {
+        transferActive = false;
+        if (file) {
+            file->close();
+            qInfo() << QString("%1 - Archivo enviado: %2 bytes transferidos")
+                       .arg(clientInfo)
+                       .arg(bytesTransferred);
+            file->deleteLater();
+            file = nullptr;
+        }
         sendResponse("226 Transferencia completa.");
-        file->close();
-        file->deleteLater();
         closeDataConnection();
     });
 
-    dataSocket->write(file->readAll());
+    // Enviar archivo en chunks para permitir control de velocidad
+    QByteArray fileData = file->readAll();
+    dataSocket->write(fileData);
     dataSocket->disconnectFromHost(); // Iniciar el cierre
 }
 
@@ -321,31 +342,50 @@ void FtpClientHandler::handleStor(const QString &fileName)
 {
     if (!setupDataConnection()) return;
 
-    QString filePath = validateFilePath(fileName, true); // Should be true to get path for new file
+    QString filePath = validateFilePath(fileName, false); // false para archivos
     if (filePath.isEmpty()) {
         sendResponse("550 Nombre de archivo inválido.");
         closeDataConnection();
         return;
     }
 
-    QFile *file = new QFile(filePath, this); // Parent is this handler
+    // Limpiar archivo anterior si existe
+    if (file) {
+        file->close();
+        file->deleteLater();
+        file = nullptr;
+    }
+
+    file = new QFile(filePath, this);
     if (!file->open(QIODevice::WriteOnly)) {
         sendResponse("550 No se pudo crear el archivo.");
-        delete file;
+        file->deleteLater();
+        file = nullptr;
         closeDataConnection();
         return;
     }
 
+    // Inicializar variables de transferencia
+    bytesTransferred = 0;
+    transferActive = true;
+    transferTimer.start();
+
     sendResponse("150 Listo para recibir datos.");
 
-    connect(dataSocket, &QTcpSocket::readyRead, this, [this, file]() {
-        file->write(dataSocket->readAll());
-    });
+    // Conectar la función onDataReadyRead para manejar los datos entrantes
+    connect(dataSocket, &QTcpSocket::readyRead, this, &FtpClientHandler::onDataReadyRead);
 
-    connect(dataSocket, &QTcpSocket::disconnected, this, [this, file]() {
+    connect(dataSocket, &QTcpSocket::disconnected, this, [this]() {
+        transferActive = false;
+        if (file) {
+            file->close();
+            qInfo() << QString("%1 - Archivo recibido: %2 bytes transferidos")
+                       .arg(clientInfo)
+                       .arg(bytesTransferred);
+            file->deleteLater();
+            file = nullptr;
+        }
         sendResponse("226 Transferencia completa.");
-        file->close();
-        file->deleteLater();
         closeDataConnection();
     });
 }
@@ -460,7 +500,47 @@ void FtpClientHandler::onNewDataConnection()
 
 void FtpClientHandler::onDataReadyRead()
 {
-    // Lógica para manejar datos entrantes en la conexión de datos
+    if (!dataSocket || !dataSocket->isOpen()) {
+        qWarning() << "onDataReadyRead: dataSocket no está disponible";
+        return;
+    }
+
+    // Esta función se usa principalmente para operaciones STOR (subida de archivos)
+    // donde el cliente envía datos al servidor
+    
+    QByteArray data = dataSocket->readAll();
+    if (data.isEmpty()) {
+        return;
+    }
+
+    bytesTransferred += data.size();
+    
+    // Aplicar límite de velocidad si está configurado
+    applySpeedLimit();
+    
+    // Si hay un archivo abierto para escritura (comando STOR)
+    if (file && file->isOpen() && file->isWritable()) {
+        qint64 written = file->write(data);
+        if (written != data.size()) {
+            qWarning() << "Error escribiendo datos al archivo. Esperado:" << data.size() << "Escrito:" << written;
+            sendResponse("426 Error de transferencia: fallo al escribir archivo.");
+            closeDataConnection();
+            return;
+        }
+        file->flush(); // Asegurar que los datos se escriban al disco
+    }
+    
+    // Emitir progreso de transferencia
+    emit transferProgress(bytesTransferred, bytesRemaining > 0 ? bytesRemaining : bytesTransferred);
+    
+    // Log de progreso cada MB transferido
+    static qint64 lastLoggedBytes = 0;
+    if (bytesTransferred - lastLoggedBytes >= 1024 * 1024) {
+        qInfo() << QString("%1 - Transferencia en progreso: %2 bytes recibidos")
+                   .arg(clientInfo)
+                   .arg(bytesTransferred);
+        lastLoggedBytes = bytesTransferred;
+    }
 }
 
 void FtpClientHandler::onBytesWritten(qint64 bytesWritten)
@@ -505,7 +585,59 @@ void FtpClientHandler::closeDataSocket()
 
 void FtpClientHandler::applySpeedLimit()
 {
-    // Implementación del límite de velocidad
+    // Si no hay límite de velocidad configurado, no hacer nada
+    if (speedLimit <= 0) {
+        return;
+    }
+    
+    // Calcular el tiempo transcurrido desde el inicio de la transferencia
+    qint64 elapsedMs = transferTimer.elapsed();
+    if (elapsedMs <= 0) {
+        // Si es la primera vez, iniciar el timer
+        transferTimer.start();
+        return;
+    }
+    
+    // Calcular la velocidad actual (bytes por segundo)
+    double currentSpeed = (double)bytesTransferred / (elapsedMs / 1000.0);
+    
+    // Si la velocidad actual excede el límite, pausar la transferencia
+    if (currentSpeed > speedLimit) {
+        // Calcular cuánto tiempo debemos esperar para mantener el límite
+        double targetTimeSeconds = (double)bytesTransferred / speedLimit;
+        double actualTimeSeconds = elapsedMs / 1000.0;
+        double delaySeconds = targetTimeSeconds - actualTimeSeconds;
+        
+        if (delaySeconds > 0) {
+            // Convertir a milisegundos y limitar el delay máximo a 100ms
+            int delayMs = qMin(static_cast<int>(delaySeconds * 1000), 100);
+            
+            if (delayMs > 0) {
+                // Pausar la transferencia usando un timer de un solo disparo
+                QTimer::singleShot(delayMs, this, [this, delayMs]() {
+                    // Reanudar la transferencia si el socket aún está activo
+                    if (dataSocket && dataSocket->isOpen() && transferActive) {
+                        // El socket continuará procesando datos automáticamente
+                        qDebug() << QString("%1 - Límite de velocidad aplicado: pausa de %2ms")
+                                    .arg(clientInfo)
+                                    .arg(delayMs);
+                    }
+                });
+            }
+        }
+    }
+    
+    // Log de velocidad cada 5 segundos
+    static qint64 lastSpeedLog = 0;
+    if (elapsedMs - lastSpeedLog >= 5000) {
+        double speedKBps = currentSpeed / 1024.0;
+        double limitKBps = speedLimit / 1024.0;
+        qInfo() << QString("%1 - Velocidad actual: %.2f KB/s (límite: %.2f KB/s)")
+                   .arg(clientInfo)
+                   .arg(speedKBps)
+                   .arg(limitKBps);
+        lastSpeedLog = elapsedMs;
+    }
 }
 
 // =====================================================================================

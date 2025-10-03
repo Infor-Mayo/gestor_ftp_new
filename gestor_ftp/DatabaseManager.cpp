@@ -24,7 +24,9 @@ QSqlDatabase getDatabaseForThread(const QString& dbPath) {
 } // namespace anónimo
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
-    dbPath = QCoreApplication::applicationDirPath() + "/db/ftp_users.db";
+    // Usar ubicación portable para la base de datos
+    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    dbPath = dataDir + "/db/ftp_users.db";
     QDir().mkpath(QFileInfo(dbPath).absolutePath());
 
     // Usar una conexión temporal solo para crear las tablas si es necesario

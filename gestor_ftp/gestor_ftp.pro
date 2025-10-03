@@ -27,7 +27,8 @@ SOURCES += \
     FtpClientHandler.cpp \
     ErrorHandler.cpp \
     ShortcutManager.cpp \
-    ShortcutDialog.cpp
+    ShortcutDialog.cpp \
+    SystemMonitor.cpp
 
 HEADERS += \
     FtpClientHandler.h \
@@ -38,7 +39,8 @@ HEADERS += \
     DatabaseManager.h \
     ErrorHandler.h \
     ShortcutManager.h \
-    ShortcutDialog.h
+    ShortcutDialog.h \
+    SystemMonitor.h
 
 FORMS += \
     gestor.ui
@@ -61,8 +63,9 @@ release {
     QMAKE_POST_LINK += $(COPY_FILE) $$shell_path($$TRANSLATIONS_DIR/*.qm) $$shell_path($$RELEASE_DIR/translations)
 }
 
-# Enlazar librería de sockets de Windows
+# Enlazar librerías de Windows
 LIBS += -lws2_32
+win32: LIBS += -lpdh -lpsapi
 
 # Translations
 TRANSLATIONS += \

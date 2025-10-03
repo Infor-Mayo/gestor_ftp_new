@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
+#include <QStandardPaths>
 
 QObject* Logger::logReceiver = nullptr;
 
@@ -28,8 +29,16 @@ Logger& Logger::instance() {
 
 void Logger::init(QObject *receiver, const QString& logFilePath) {
     instance().setReceiver(receiver);
-    instance().m_logFilePath = logFilePath;
-
+    
+    // Si no se proporciona ruta, usar ubicación portable
+    if (logFilePath.isEmpty()) {
+        QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        instance().m_logFilePath = dataDir + "/logs/ftp_server.log";
+        // Crear directorio si no existe
+        QDir().mkpath(QFileInfo(instance().m_logFilePath).absolutePath());
+    } else {
+        instance().m_logFilePath = logFilePath;
+    }
 
     if (instance().m_fileLoggingEnabled) {
         QMutexLocker locker(&instance().m_fileMutex);
@@ -323,4 +332,17 @@ void Logger::enableConsoleLogging(bool enable) {
     m_consoleLoggingEnabled = enable;
 }
 
-// Método ya definido anteriormente
+void Logger::cleanup() {
+    QMutexLocker locker(&instance().m_fileMutex);
+    instance().closeFile();
+    
+    // Limpiar el receptor de logs
+    logReceiver = nullptr;
+    
+    // Resetear configuraciones a valores por defecto
+    instance().m_logLevel = LogLevel::INFO;
+    instance().m_fileLoggingEnabled = true;
+    instance().m_consoleLoggingEnabled = true;
+    
+    qDebug() << "Logger cleanup completado";
+}

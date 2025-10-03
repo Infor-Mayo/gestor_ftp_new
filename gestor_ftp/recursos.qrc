@@ -2,4 +2,17 @@
     <qresource prefix="/">
         <file>img/LTakzdPkT5iXZdyYumu8uw.png</file>
     </qresource>
+    <qresource prefix="/translations">
+        <file>translations/gestor_es.qm</file>
+        <file>translations/gestor_en.qm</file>
+        <file>translations/gestor_fr.qm</file>
+        <file>translations/gestor_de.qm</file>
+        <file>translations/gestor_it.qm</file>
+        <file>translations/gestor_pt.qm</file>
+        <file>translations/gestor_ru.qm</file>
+        <file>translations/gestor_zh.qm</file>
+        <file>translations/gestor_ja.qm</file>
+        <file>translations/gestor_ko.qm</file>
+        <file>translations/gestor_ar.qm</file>
+    </qresource>
 </RCC>
