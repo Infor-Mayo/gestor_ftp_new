@@ -13,59 +13,42 @@
 #include <QThreadPool>
 #include <QThread>
 #include <QStandardPaths>
+#include <QFileInfo>
 
 
-void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) // Se omite el parámetro context intencionadamente
+void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
-    QString txt;
-    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-    
+    // Usar el sistema Logger en lugar de manejo manual
+    LogLevel level = LogLevel::INFO; // Por defecto
     switch (type) {
-    case QtDebugMsg:
-        txt = QString("[%1] Debug: %2").arg(timestamp).arg(msg);
-        break;
-    case QtWarningMsg:
-        txt = QString("[%1] Warning: %2").arg(timestamp).arg(msg);
-        break;
-    case QtCriticalMsg:
-        txt = QString("[%1] Critical: %2").arg(timestamp).arg(msg);
-        break;
-    case QtFatalMsg:
-        txt = QString("[%1] Fatal: %2").arg(timestamp).arg(msg);
-        break;
-    case QtInfoMsg:
-        txt = QString("[%1] Info: %2").arg(timestamp).arg(msg);
-        break;
+    case QtDebugMsg:    level = LogLevel::DEBUG; break;
+    case QtInfoMsg:     level = LogLevel::INFO; break;
+    case QtWarningMsg:  level = LogLevel::WARNING; break;
+    case QtCriticalMsg: level = LogLevel::ERROR; break;
+    case QtFatalMsg:    level = LogLevel::CRITICAL; break;
     }
 
-    // Asegurar que el directorio logs existe en la ubicación correcta
-    QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
-    QDir dir;
-    if (!dir.exists(logDir)) {
-        dir.mkpath(logDir);
+    // Obtener el componente desde el contexto
+    QString component = context.file ? QFileInfo(context.file).fileName() : "Sistema";
+    
+    // Usar el Logger centralizado que maneja todo correctamente
+    switch (level) {
+    case LogLevel::DEBUG:
+        Logger::instance().debug(msg, component);
+        break;
+    case LogLevel::INFO:
+        Logger::instance().info(msg, component);
+        break;
+    case LogLevel::WARNING:
+        Logger::instance().warning(msg, component);
+        break;
+    case LogLevel::ERROR:
+        Logger::instance().error(msg, component);
+        break;
+    case LogLevel::CRITICAL:
+        Logger::instance().critical(msg, component);
+        break;
     }
-
-    // Escribir al archivo en ubicación portable
-    QFile outFile(logDir + "/ftpserver.log");
-    outFile.open(QIODevice::WriteOnly | QIODevice::Append);
-    QTextStream ts(&outFile);
-    ts << txt << Qt::endl;
-    outFile.close();
-
-    // Emitir el mensaje para la interfaz
-    if (Logger::instance().parent()) {
-        // Determinar el nivel de log basado en el tipo de mensaje
-        LogLevel level = LogLevel::INFO; // Por defecto
-        if (type == QtDebugMsg) level = LogLevel::DEBUG;
-        else if (type == QtWarningMsg) level = LogLevel::WARNING;
-        else if (type == QtCriticalMsg) level = LogLevel::ERROR;
-        else if (type == QtFatalMsg) level = LogLevel::CRITICAL;
-        
-        emit Logger::instance().newLogMessage(txt, level);
-    }
-
-    // También mostrar en la consola de debug
-    fprintf(stderr, "%s\n", qPrintable(txt));
 }
 
 int main(int argc, char *argv[])
@@ -87,6 +70,8 @@ int main(int argc, char *argv[])
     gestor w;
     // Configurar logger antes que cualquier operación
     Logger::init(&w);
+    // Desactivar logging en consola para evitar duplicados
+    Logger::instance().enableConsoleLogging(false);
     qInstallMessageHandler(messageHandler);
 
     QTranslator translator;
@@ -106,15 +91,11 @@ int main(int argc, char *argv[])
     }
 
     // Conectar señales de logging directamente
-    // Conectar logs tanto a la consola como a la pestaña de logs
     // Enviar todos los logs únicamente a la pestaña "Logs del Servidor"
     QObject::connect(&Logger::instance(), &Logger::newLogMessage,
                      &w,
                      [&w](const QString &msg, LogLevel){ w.appendLogMessage(msg); },
                      Qt::QueuedConnection);
-
-    // Desactivar salida a consola para evitar duplicados
-    Logger::instance().enableConsoleLogging(false);
 
     // Cargar configuración
     QSettings settings("MiEmpresa", "GestorFTP");

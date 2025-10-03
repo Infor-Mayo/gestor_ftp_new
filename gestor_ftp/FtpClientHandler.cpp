@@ -13,6 +13,32 @@
 #include <QTimer>
 #include <stdexcept>
 #include <cstring>
+#include <QDebug>
+#include <iostream>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QTimer>
+
+// =====================================================================================
+// Seccion: Logging Dual (GUI + Consola)
+// =====================================================================================
+
+void logDual(const QString &level, const QString &message) {
+    // Log a consola para debug
+    std::cout << "[" << level.toStdString() << "] " << message.toStdString() << std::endl;
+    std::cout.flush();
+    
+    // Log a Qt (GUI)
+    if (level == "INFO") {
+        qInfo() << message;
+    } else if (level == "WARNING") {
+        qWarning() << message;
+    } else if (level == "ERROR") {
+        qCritical() << message;
+    } else if (level == "DEBUG") {
+        qDebug() << message;
+    }
+}
 
 // =====================================================================================
 // Seccion: Constructor y Destructor
@@ -33,40 +59,54 @@ FtpClientHandler::FtpClientHandler(qintptr socketDescriptor, FtpServer *server, 
 
 FtpClientHandler::~FtpClientHandler()
 {
-    if (socket && socket->isOpen()) {
-        socket->close();
-    }
-    if (passiveServer && passiveServer->isListening()) {
-        passiveServer->close();
-    }
-    if(!clientInfo.isEmpty()){
-        qInfo() << (QString("%1 - Conexión cerrada.").arg(clientInfo));
-    }
+    // DESTRUCTOR ULTRA-SIMPLE - Solo limpiar referencias
+    dataSocket = nullptr;
+    passiveServer = nullptr;
+    socket = nullptr;
 }
 
 void FtpClientHandler::process() {
     socket = new QTcpSocket();
     if (!socket->setSocketDescriptor(socketDescriptor)) {
-        qInfo() << ("Error al establecer el descriptor del socket.");
+        logDual("ERROR", "Error al establecer el descriptor del socket.");
         emit finished("");
         return;
     }
 
     clientInfo = QString("%1:%2").arg(socket->peerAddress().toString()).arg(socket->peerPort());
+    
+    // Inicializar directorio actual al directorio raíz del servidor
+    if (m_server) {
+        currentDir = m_server->getRootDir();
+        logDual("INFO", QString("Directorio raíz del servidor: '%1'").arg(currentDir));
+        logDual("INFO", QString("Directorio actual inicializado a: '%1'").arg(currentDir));
+    }
 
     connect(socket, &QTcpSocket::readyRead, this, &FtpClientHandler::onReadyRead);
     connect(socket, &QTcpSocket::disconnected, this, &FtpClientHandler::onDisconnected);
 
     if (!m_server) {
-        qInfo() << ("Error crítico: El manejador no tiene una instancia de servidor asignada.");
+        logDual("ERROR", "Error crítico: El manejador no tiene una instancia de servidor asignada.");
         emit finished(clientInfo);
         return;
     }
-    currentDir = m_server->getRootDir();
 
-    qInfo() << QString("Directorio raíz del servidor: '%1'").arg(m_server->getRootDir());
-    qInfo() << QString("Directorio actual inicializado a: '%1'").arg(currentDir);
-    sendResponse("220 Servidor FTP de Infor-Mayo listo.");
+    // Detectar si el cliente está detrás de NAT
+    QString clientIp = socket->peerAddress().toString();
+    QString serverIp = socket->localAddress().toString();
+    bool behindNAT = clientIp.startsWith("::ffff:") && 
+                     (clientIp.contains("192.168.") || clientIp.contains("10.") || 
+                      clientIp.contains("172.16.") || clientIp.contains("172.17.") ||
+                      clientIp.contains("172.18.") || clientIp.contains("172.19.") ||
+                      clientIp.contains("172.2") || clientIp.contains("172.3"));
+    
+    if (behindNAT) {
+        sendResponse("220 Servidor FTP de Infor-Mayo listo. Cliente detrás de NAT detectado - use modo PASV.");
+        qInfo() << QString("%1 - Cliente detrás de NAT detectado, recomendando PASV").arg(clientInfo);
+    } else {
+        sendResponse("220 Servidor FTP de Infor-Mayo listo. Modos PORT y PASV disponibles.");
+    }
+    
     qInfo() << (QString("%1 - Conexión establecida.").arg(clientInfo));
     emit established(clientInfo, this);
 }
@@ -104,11 +144,14 @@ void FtpClientHandler::processCommand(const QString &line)
     else if (command == "LIST" || command == "NLST") handleList(arg);
     else if (command == "RETR") handleRetr(arg);
     else if (command == "STOR") handleStor(arg);
-    else if (command == "MKD") handleMkd(arg);
     else if (command == "RMD") handleRmd(arg);
     else if (command == "DELE") handleDele(arg);
     else if (command == "PORT") handlePort(arg);
     else if (command == "PASV") handlePasv();
+    else if (command == "SYST") handleSyst();
+    else if (command == "OPTS") {
+        handleOpts(arg);
+    }
     else sendResponse("500 Comando no reconocido.");
 }
 
@@ -164,6 +207,12 @@ void FtpClientHandler::handleFeat()
 {
     sendResponse("211-Features:");
     sendResponse(" PASV");
+    sendResponse(" PORT");
+    sendResponse(" SIZE");
+    sendResponse(" MDTM");
+    sendResponse(" UTF8");
+    sendResponse(" EPRT");
+    sendResponse(" EPSV");
     sendResponse("211 End");
 }
 
@@ -176,6 +225,21 @@ void FtpClientHandler::handleType(const QString &type)
     }
 }
 
+void FtpClientHandler::handleSyst()
+{
+    sendResponse("215 UNIX Type: L8");
+}
+
+void FtpClientHandler::handleOpts(const QString &arg)
+{
+    QStringList parts = arg.split(' ', Qt::SkipEmptyParts);
+    if (parts.size() >= 2 && parts[0].toUpper() == "UTF8" && parts[1].toUpper() == "ON") {
+        sendResponse("200 UTF8 set to on");
+    } else {
+        sendResponse("501 Opción no soportada.");
+    }
+}
+
 // --- Navegación de Directorios ---
 void FtpClientHandler::handlePwd()
 {
@@ -185,30 +249,103 @@ void FtpClientHandler::handlePwd()
 
 void FtpClientHandler::handleCwd(const QString &path)
 {
-    QString newPath = validateFilePath(path, true);
-    if (!newPath.isEmpty()) {
-        currentDir = newPath;
-        sendResponse("250 Directorio cambiado exitosamente.");
+    logDual("DEBUG", QString("%1 - Cambiando directorio de '%2' a '%3'").arg(clientInfo).arg(currentDir).arg(path));
+    
+    QString newPath;
+    
+    // Manejar rutas especiales
+    if (path == "/" || path.isEmpty()) {
+        newPath = m_server->getRootDir();
+    } else if (path == "..") {
+        QDir dir(currentDir);
+        if (dir.cdUp() && dir.absolutePath().startsWith(m_server->getRootDir())) {
+            newPath = dir.absolutePath();
+        } else {
+            newPath = m_server->getRootDir();
+        }
     } else {
+        newPath = validateFilePath(path, true);
+    }
+    
+    if (!newPath.isEmpty()) {
+        // Verificar que el directorio realmente existe
+        QDir testDir(newPath);
+        if (testDir.exists()) {
+            QString oldDir = currentDir;
+            currentDir = newPath;
+            
+            logDual("INFO", QString("%1 - Directorio cambiado de '%2' a '%3'").arg(clientInfo).arg(oldDir).arg(currentDir));
+            sendResponse(QString("250 Directorio cambiado a \"%1\".").arg(currentDir));
+        } else {
+            logDual("WARNING", QString("%1 - Directorio no existe: '%2'").arg(clientInfo).arg(newPath));
+            sendResponse("550 El directorio no existe.");
+            
+            // LIMPIAR SOCKET DE DATOS SI HAY ERROR
+            if (dataSocket) {
+                logDual("DEBUG", QString("%1 - Limpiando socket por error en CWD").arg(clientInfo));
+                dataSocket = nullptr;
+            }
+        }
+    } else {
+        logDual("WARNING", QString("%1 - Ruta inválida: '%2'").arg(clientInfo).arg(path));
         sendResponse("550 El directorio no existe o no es accesible.");
+        
+        // LIMPIAR SOCKET DE DATOS SI HAY ERROR
+        if (dataSocket) {
+            logDual("DEBUG", QString("%1 - Limpiando socket por error en CWD").arg(clientInfo));
+            dataSocket = nullptr;
+        }
     }
 }
 
 void FtpClientHandler::handleCdup()
 {
+    logDual("DEBUG", QString("%1 - CDUP desde directorio: '%2'").arg(clientInfo).arg(currentDir));
+    
     QDir dir(currentDir);
-    if (dir.cdUp()) {
+    if (dir.cdUp() && dir.absolutePath().startsWith(m_server->getRootDir())) {
+        QString oldDir = currentDir;
         currentDir = dir.absolutePath();
-        sendResponse("250 CDUP exitoso.");
+        
+        logDual("INFO", QString("%1 - CDUP exitoso de '%2' a '%3'").arg(clientInfo).arg(oldDir).arg(currentDir));
+        sendResponse(QString("250 Directorio cambiado a \"%1\".").arg(currentDir));
     } else {
-        sendResponse("550 No se puede subir de directorio.");
+        // Si no se puede subir más, ir al directorio raíz
+        QString oldDir = currentDir;
+        currentDir = m_server->getRootDir();
+        
+        logDual("INFO", QString("%1 - CDUP al directorio raíz desde '%2'").arg(clientInfo).arg(oldDir));
+        sendResponse(QString("250 Directorio cambiado a \"%1\".").arg(currentDir));
     }
 }
 
 // --- Operaciones de Archivos y Directorios ---
 void FtpClientHandler::handleList(const QString &args)
 {
-    if (!setupDataConnection()) return;
+    qDebug() << QString("%1 - Procesando comando LIST: '%2'").arg(clientInfo).arg(args);
+    
+    // SOLUCION SIMPLE: Verificar si hay conexión de datos disponible
+    if (!dataSocket || !dataSocket->isValid() || dataSocket->state() != QAbstractSocket::ConnectedState) {
+        logDual("WARNING", QString("%1 - No hay conexión de datos disponible para LIST").arg(clientInfo));
+        sendResponse("425 No se puede abrir conexión de datos.");
+        return;
+    }
+    
+    // PROTECCION ANTI-CRASH: Verificar si hay transferencia en curso
+    if (dataSocket->bytesToWrite() > 0) {
+        logDual("WARNING", QString("%1 - Transferencia en curso, rechazando LIST").arg(clientInfo));
+        sendResponse("425 Transferencia en curso, intente más tarde.");
+        return;
+    }
+    
+    logDual("INFO", QString("%1 - Usando conexión de datos existente").arg(clientInfo));
+
+    // Verificar que dataSocket esté disponible
+    if (!dataSocket) {
+        qCritical() << QString("%1 - dataSocket es null después de setupDataConnection").arg(clientInfo);
+        sendResponse("425 No se pudo establecer conexión de datos.");
+        return;
+    }
 
     QStringList parts = args.split(' ', Qt::SkipEmptyParts);
     QString pathString;
@@ -238,47 +375,123 @@ void FtpClientHandler::handleList(const QString &args)
 
     QString targetPath = pathString.isEmpty() ? currentDir : validateFilePath(pathString, true);
     if (targetPath.isEmpty()) {
-        qWarning() << QString("Intento de listar un directorio inválido o inaccesible. Path solicitado: '%1', Directorio actual: '%2'").arg(pathString).arg(currentDir);
+        qWarning() << QString("%1 - Intento de listar directorio inválido. Path: '%2', Dir actual: '%3'")
+                      .arg(clientInfo).arg(pathString).arg(currentDir);
         sendResponse("550 Directorio no encontrado o sin acceso.");
         closeDataConnection();
         return;
     }
-    qInfo() << QString("Listando directorio: '%1'").arg(targetPath);
+    
+    qInfo() << QString("%1 - Listando directorio: '%2'").arg(clientInfo).arg(targetPath);
+
+    // Verificar que el directorio existe y es accesible
+    QDir dir(targetPath);
+    if (!dir.exists()) {
+        qWarning() << QString("%1 - El directorio no existe: '%2'").arg(clientInfo).arg(targetPath);
+        sendResponse("550 Directorio no existe.");
+        closeDataConnection();
+        return;
+    }
 
     sendResponse("150 Abriendo conexión de datos para la lista de directorios.");
 
-    QDir dir(targetPath);
-    QFileInfoList list = dir.entryInfoList(filters, QDir::Name | QDir::DirsFirst);
-    auto permsString = [](const QFileInfo &fi){
+    QFileInfoList list;
+    try {
+        list = dir.entryInfoList(filters, QDir::Name | QDir::DirsFirst);
+    } catch (const std::exception& e) {
+        qCritical() << QString("%1 - Error al listar directorio: %2").arg(clientInfo).arg(e.what());
+        sendResponse("550 Error interno al listar directorio.");
+        closeDataConnection();
+        return;
+    }
+
+    auto permsString = [](const QFileInfo &fi) -> QString {
         QString s;
         s += fi.isDir() ? 'd' : '-';
-        // Los permisos no se obtienen fácilmente en Windows, se muestra uno genérico legible por la mayoría de clientes
+        // Los permisos no se obtienen fácilmente en Windows, se muestra uno genérico
         s += "rwxr-xr-x"; // placeholder
         return s;
     };
 
     QString listing;
+    int fileCount = 0;
     for (const QFileInfo &info : list) {
-        listing += QString("%1 1 owner group %2 %3 %4\r\n")
-                       .arg(permsString(info))
-                       .arg(info.size(), 10)
-                       .arg(info.lastModified().toString("MMM dd hh:mm"))
-                       .arg(info.fileName());
+        try {
+            // Filtrar archivos ocultos del sistema en Windows (solo si no se usa -a)
+            if (!(filters & QDir::Hidden) && info.fileName().startsWith('.') && 
+                info.fileName() != "." && info.fileName() != "..") {
+                continue; // Saltar archivos ocultos a menos que se solicite con -a
+            }
+            
+            listing += QString("%1 1 owner group %2 %3 %4\r\n")
+                           .arg(permsString(info))
+                           .arg(info.size(), 10)
+                           .arg(info.lastModified().toString("MMM dd hh:mm"))
+                           .arg(info.fileName());
+            fileCount++;
+        } catch (const std::exception& e) {
+            qWarning() << QString("%1 - Error procesando archivo: %2 - %3")
+                          .arg(clientInfo).arg(info.fileName()).arg(e.what());
+            continue; // Saltar este archivo y continuar
+        }
     }
+    
+    qInfo() << QString("%1 - Preparando listado de %2 elementos").arg(clientInfo).arg(fileCount);
 
-    connect(dataSocket, &QTcpSocket::disconnected, this, [this]() {
-        sendResponse("226 Transferencia completa.");
-        closeDataConnection();
-    });
-
-    // Enviar listado y asegurarse de que los datos se escriban completamente antes de cerrar
-    QByteArray payload = listing.toUtf8();
-    dataSocket->write(payload);
-    dataSocket->flush();
-    if (!dataSocket->waitForBytesWritten(5000)) {
-        qWarning() << "Tiempo de espera agotado escribiendo listado en la conexión de datos.";
+    // ENVIO SIMPLE Y SEGURO CON PROTECCIONES ANTI-CRASH
+    try {
+        QByteArray payload = listing.toUtf8();
+        logDual("INFO", QString("%1 - Enviando listado: %2 archivos, %3 bytes")
+                   .arg(clientInfo).arg(fileCount).arg(payload.size()));
+        
+        if (payload.isEmpty()) {
+            payload = "total 0\r\n"; // Listado vacío pero válido
+            logDual("WARNING", QString("%1 - Listado vacío, enviando respuesta por defecto").arg(clientInfo));
+        }
+        
+        // Verificar socket antes de escribir
+        if (!dataSocket || !dataSocket->isValid()) {
+            logDual("ERROR", QString("%1 - Socket de datos inválido antes de escribir").arg(clientInfo));
+            sendResponse("426 Error de conexión de datos.");
+            return;
+        }
+        
+        // Enviar datos de forma simple
+        qint64 written = dataSocket->write(payload);
+        
+        if (written == -1) {
+            logDual("ERROR", QString("%1 - Error escribiendo al socket: %2").arg(clientInfo).arg(dataSocket->errorString()));
+            sendResponse("426 Error de transferencia.");
+        } else if (written != payload.size()) {
+            logDual("WARNING", QString("%1 - Escritura parcial: %2/%3 bytes").arg(clientInfo).arg(written).arg(payload.size()));
+            sendResponse("226 Transferencia parcial completada.");
+        } else {
+            logDual("INFO", QString("%1 - Listado enviado exitosamente (%2 bytes)").arg(clientInfo).arg(written));
+            sendResponse("226 Transferencia completa.");
+        }
+        
+        // Flush con verificación
+        if (dataSocket && dataSocket->isValid()) {
+            dataSocket->flush();
+        }
+        
+    } catch (const std::exception& e) {
+        logDual("ERROR", QString("%1 - Excepción enviando listado: %2").arg(clientInfo).arg(e.what()));
+        sendResponse("426 Error interno de transferencia.");
+    } catch (...) {
+        logDual("ERROR", QString("%1 - Error desconocido enviando listado").arg(clientInfo));
+        sendResponse("426 Error desconocido de transferencia.");
     }
-    dataSocket->disconnectFromHost();
+    
+    // LIMPIEZA INMEDIATA Y SIMPLE
+    if (dataSocket) {
+        logDual("DEBUG", QString("%1 - Limpieza inmediata del socket").arg(clientInfo));
+        
+        // Solo limpiar la referencia inmediatamente
+        dataSocket = nullptr;
+        
+        logDual("DEBUG", QString("%1 - Socket limpiado").arg(clientInfo));
+    }
 }
 
 void FtpClientHandler::handleRetr(const QString &fileName)
@@ -448,54 +661,306 @@ void FtpClientHandler::handlePort(const QString &arg)
         sendResponse("501 Argumento de PORT inválido.");
         return;
     }
+    
+    // MODO ACTIVO REAL - SOLUCION AGRESIVA
     dataSocketIp = QString("%1.%2.%3.%4").arg(parts[0]).arg(parts[1]).arg(parts[2]).arg(parts[3]);
     dataSocketPort = (parts[4].toInt() << 8) + parts[5].toInt();
-    sendResponse("200 Comando PORT exitoso.");
+    
+    qInfo() << QString("%1 - MODO ACTIVO REAL: Cliente en %2:%3")
+               .arg(clientInfo).arg(dataSocketIp).arg(dataSocketPort);
+    
+    // Limpiar servidor pasivo si existe
+    if (passiveServer) {
+        if (passiveServer->isListening()) {
+            passiveServer->close();
+        }
+        passiveServer->deleteLater();
+        passiveServer = nullptr;
+    }
+    
+    // SOLUCION AGRESIVA: Crear múltiples intentos de conexión
+    qInfo() << QString("%1 - Preparando conexión activa agresiva").arg(clientInfo);
+    
+    sendResponse("200 Comando PORT exitoso. Preparando conexión activa.");
 }
 
 void FtpClientHandler::handlePasv()
 {
-    if (!passiveServer) {
-        passiveServer = new QTcpServer(this);
-        connect(passiveServer, &QTcpServer::newConnection, this, &FtpClientHandler::onNewDataConnection);
+    qDebug() << QString("%1 - Procesando comando PASV").arg(clientInfo);
+    
+    // Cerrar servidor pasivo anterior si existe
+    if (passiveServer) {
+        if (passiveServer->isListening()) {
+            passiveServer->close();
+        }
+        passiveServer->deleteLater();
+        passiveServer = nullptr;
     }
+    
+    // Crear nuevo servidor pasivo
+    passiveServer = new QTcpServer(this);
+    connect(passiveServer, &QTcpServer::newConnection, this, &FtpClientHandler::onNewDataConnection);
 
+    // Intentar escuchar en un puerto disponible
     if (!passiveServer->listen(QHostAddress::Any)) {
+        qWarning() << QString("%1 - No se pudo crear servidor pasivo: %2")
+                      .arg(clientInfo).arg(passiveServer->errorString());
         sendResponse("425 No se pudo entrar en modo pasivo.");
+        passiveServer->deleteLater();
+        passiveServer = nullptr;
         return;
     }
 
     quint16 port = passiveServer->serverPort();
-    QString ip = socket->localAddress().toString().replace('.', ',');
-    sendResponse(QString("227 Entrando en modo pasivo (%1,%2,%3).").arg(ip).arg(port / 256).arg(port % 256));
+    
+    // CORRECCION CRITICA: Usar IP del servidor que el cliente puede alcanzar
+    QString serverIp = socket->localAddress().toString();
+    
+    // Limpiar formato IPv6 si es necesario
+    if (serverIp.startsWith("::ffff:")) {
+        serverIp = serverIp.mid(7); // Remover "::ffff:"
+    }
+    
+    // CORRECCION: Si es localhost, usar la IP real del servidor
+    if (serverIp == "127.0.0.1" || serverIp.isEmpty()) {
+        // Usar la IP que el cliente ve del servidor
+        QString clientIp = socket->peerAddress().toString();
+        if (clientIp.startsWith("::ffff:")) {
+            clientIp = clientIp.mid(7);
+        }
+        // Asumir que el servidor está en la misma red que el cliente
+        QStringList parts = clientIp.split('.');
+        if (parts.size() == 4) {
+            // Usar la IP base de la red del cliente para el servidor
+            serverIp = QString("%1.%2.%3.148").arg(parts[0]).arg(parts[1]).arg(parts[2]);
+        }
+    }
+    
+    // Convertir IP a formato FTP (comas en lugar de puntos)
+    QString ip = serverIp;
+    ip.replace('.', ',');
+    
+    // Calcular puertos alto y bajo
+    quint8 portHigh = port / 256;
+    quint8 portLow = port % 256;
+    
+    QString response = QString("227 Entering Passive Mode (%1,%2,%3)").arg(ip).arg(portHigh).arg(portLow);
+    
+    qInfo() << QString("%1 - Modo pasivo activado en puerto %2 (IP servidor: %3)").arg(clientInfo).arg(port).arg(serverIp);
+    qInfo() << QString("%1 - Respuesta PASV: %2").arg(clientInfo).arg(response);
+    
+    sendResponse(response);
+    
+    // Limpiar información de modo activo
+    dataSocketIp.clear();
+    dataSocketPort = 0;
 }
 
 bool FtpClientHandler::setupDataConnection()
 {
+    qDebug() << QString("%1 - Configurando conexión de datos. Modo: %2")
+                .arg(clientInfo)
+                .arg(dataSocketIp.isEmpty() ? "PASIVO" : "ACTIVO");
+    
     if (dataSocketIp.isEmpty()) { // Modo Pasivo
-        if (!passiveServer || !passiveServer->isListening()) {
+        // Verificar si ya tenemos una conexión de datos establecida
+        if (dataSocket && dataSocket->isValid() && dataSocket->state() == QAbstractSocket::ConnectedState) {
+            qInfo() << QString("%1 - Usando conexión de datos existente en modo pasivo").arg(clientInfo);
+            return true;
+        }
+        
+        if (!passiveServer) {
+            qWarning() << QString("%1 - Servidor pasivo no disponible").arg(clientInfo);
             sendResponse("425 Use PASV primero.");
             return false;
         }
-        // Esperar a que el cliente se conecte
-        return true;
-    } else { // Modo Activo
-        dataSocket = new QTcpSocket(this);
-        dataSocket->connectToHost(dataSocketIp, dataSocketPort);
-        if (!dataSocket->waitForConnected(5000)) {
-            sendResponse("425 No se pudo conectar al cliente.");
-            dataSocket->deleteLater();
-            dataSocket = nullptr;
+        
+        // Si el servidor pasivo está cerrado, significa que ya se estableció la conexión
+        if (!passiveServer->isListening()) {
+            if (dataSocket && dataSocket->isValid() && dataSocket->state() == QAbstractSocket::ConnectedState) {
+                qInfo() << QString("%1 - Conexión de datos ya establecida en modo pasivo").arg(clientInfo);
+                return true;
+            } else {
+                qWarning() << QString("%1 - Servidor pasivo cerrado pero sin conexión válida").arg(clientInfo);
+                sendResponse("425 Error en conexión de datos pasiva.");
+                return false;
+            }
+        }
+        
+        // En modo pasivo, verificar si ya hay una conexión pendiente
+        if (passiveServer->hasPendingConnections()) {
+            if (dataSocket) {
+                dataSocket->deleteLater();
+            }
+            dataSocket = passiveServer->nextPendingConnection();
+            if (dataSocket && dataSocket->isValid()) {
+                qInfo() << QString("%1 - Conexión de datos establecida en modo pasivo (pendiente)").arg(clientInfo);
+                passiveServer->close(); // Cerrar el servidor después de aceptar la conexión
+                return true;
+            }
+        }
+        
+        // Si no hay conexión pendiente, esperar un poco (timeout muy corto)
+        qDebug() << QString("%1 - Esperando conexión del cliente en modo pasivo...").arg(clientInfo);
+        
+        // Esperar solo 2 segundos - si el cliente no se conecta, hay un problema
+        if (passiveServer->waitForNewConnection(2000)) {
+            if (dataSocket) {
+                dataSocket->deleteLater();
+            }
+            dataSocket = passiveServer->nextPendingConnection();
+            if (dataSocket && dataSocket->isValid()) {
+                qInfo() << QString("%1 - Conexión de datos establecida en modo pasivo (esperada)").arg(clientInfo);
+                passiveServer->close(); // Cerrar el servidor después de aceptar la conexión
+                return true;
+            } else {
+                qWarning() << QString("%1 - Conexión de datos inválida en modo pasivo").arg(clientInfo);
+                sendResponse("425 Error en conexión de datos pasiva.");
+                return false;
+            }
+        } else {
+            qWarning() << QString("%1 - Timeout esperando conexión pasiva (2s)").arg(clientInfo);
+            qWarning() << QString("%1 - El cliente no se conectó al puerto %2 después del PASV")
+                          .arg(clientInfo).arg(passiveServer ? passiveServer->serverPort() : 0);
+            sendResponse("425 Timeout esperando conexión de datos. Verifique configuración del cliente.");
             return false;
         }
-        return true;
+    } else { // Modo Activo AGRESIVO
+        qInfo() << QString("%1 - INICIANDO MODO ACTIVO AGRESIVO hacia %2:%3")
+                    .arg(clientInfo).arg(dataSocketIp).arg(dataSocketPort);
+        
+        // INTENTO 1: Conexión directa sin bind
+        if (dataSocket) {
+            dataSocket->deleteLater();
+            dataSocket = nullptr;
+        }
+        
+        dataSocket = new QTcpSocket(this);
+        dataSocket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+        
+        qInfo() << QString("%1 - INTENTO 1: Conexión directa").arg(clientInfo);
+        dataSocket->connectToHost(QHostAddress(dataSocketIp), dataSocketPort);
+        
+        if (dataSocket->waitForConnected(500)) {
+            qInfo() << QString("%1 - ✅ MODO ACTIVO EXITOSO - Intento 1").arg(clientInfo);
+            return true;
+        }
+        
+        qWarning() << QString("%1 - ❌ Intento 1 falló: %2").arg(clientInfo).arg(dataSocket->errorString());
+        dataSocket->deleteLater();
+        dataSocket = nullptr;
+        
+        // INTENTO 2: Con bind explícito
+        dataSocket = new QTcpSocket(this);
+        QString serverIp = socket->localAddress().toString();
+        if (serverIp.startsWith("::ffff:")) {
+            serverIp = serverIp.mid(7);
+        }
+        
+        qInfo() << QString("%1 - INTENTO 2: Con bind desde %2").arg(clientInfo).arg(serverIp);
+        
+        if (dataSocket->bind(QHostAddress(serverIp), 0)) {
+            dataSocket->connectToHost(QHostAddress(dataSocketIp), dataSocketPort);
+            if (dataSocket->waitForConnected(500)) {
+                qInfo() << QString("%1 - ✅ MODO ACTIVO EXITOSO - Intento 2").arg(clientInfo);
+                return true;
+            }
+        }
+        
+        qWarning() << QString("%1 - ❌ Intento 2 falló: %2").arg(clientInfo).arg(dataSocket->errorString());
+        dataSocket->deleteLater();
+        dataSocket = nullptr;
+        
+        // INTENTO 3: Múltiples puertos consecutivos
+        qInfo() << QString("%1 - INTENTO 3: Probando puertos consecutivos").arg(clientInfo);
+        
+        for (int i = 0; i < 5; i++) {
+            quint16 testPort = dataSocketPort + i;
+            dataSocket = new QTcpSocket(this);
+            
+            qDebug() << QString("%1 - Probando puerto %2").arg(clientInfo).arg(testPort);
+            dataSocket->connectToHost(QHostAddress(dataSocketIp), testPort);
+            
+            if (dataSocket->waitForConnected(200)) {
+                qInfo() << QString("%1 - ✅ MODO ACTIVO EXITOSO - Puerto %2").arg(clientInfo).arg(testPort);
+                return true;
+            }
+            
+            dataSocket->deleteLater();
+            dataSocket = nullptr;
+        }
+        
+        // TODOS LOS INTENTOS FALLARON
+        qCritical() << QString("%1 - ❌ MODO ACTIVO COMPLETAMENTE FALLIDO").arg(clientInfo);
+        sendResponse("425 Modo activo falló después de múltiples intentos agresivos.");
+        return false;
     }
 }
 
 void FtpClientHandler::onNewDataConnection()
 {
-    dataSocket = passiveServer->nextPendingConnection();
-    passiveServer->close();
+    try {
+        if (!passiveServer) {
+            logDual("WARNING", QString("%1 - onNewDataConnection llamado sin passiveServer").arg(clientInfo));
+            return;
+        }
+        
+        // PROTECCION CRITICA: Evitar procesamiento concurrente
+        static QMutex connectionMutex;
+        QMutexLocker locker(&connectionMutex);
+        
+        logDual("DEBUG", QString("%1 - Procesando nueva conexión de datos (protegido)").arg(clientInfo));
+        
+        // SOLUCION ULTRA-SIMPLE: Solo permitir UNA conexión de datos a la vez
+        if (dataSocket != nullptr) {
+            logDual("WARNING", QString("%1 - Ya hay una conexión de datos activa, rechazando nueva").arg(clientInfo));
+            
+            // Rechazar nueva conexión sin tocar la existente
+            QTcpSocket* newSocket = passiveServer->nextPendingConnection();
+            if (newSocket) {
+                // Solo cerrar la nueva, no tocar la existente
+                newSocket->close();
+                delete newSocket; // Eliminación inmediata
+            }
+            return;
+        }
+        
+        dataSocket = passiveServer->nextPendingConnection();
+        if (dataSocket) {
+            logDual("INFO", QString("%1 - ✅ CONEXION PASIVA EXITOSA desde %2:%3")
+                       .arg(clientInfo)
+                       .arg(dataSocket->peerAddress().toString())
+                       .arg(dataSocket->peerPort()));
+            
+            // Configurar el socket de datos con verificación
+            try {
+                dataSocket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+                dataSocket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+                logDual("DEBUG", QString("%1 - Opciones de socket configuradas").arg(clientInfo));
+            } catch (const std::exception& e) {
+                logDual("WARNING", QString("%1 - Error configurando opciones de socket: %2").arg(clientInfo).arg(e.what()));
+            }
+            
+            // Cerrar el servidor pasivo inmediatamente con protección
+            try {
+                if (passiveServer && passiveServer->isListening()) {
+                    passiveServer->close();
+                    logDual("DEBUG", QString("%1 - Servidor pasivo cerrado").arg(clientInfo));
+                }
+            } catch (const std::exception& e) {
+                logDual("WARNING", QString("%1 - Error cerrando servidor pasivo: %2").arg(clientInfo).arg(e.what()));
+            }
+            
+            logDual("INFO", QString("%1 - Socket de datos configurado y listo").arg(clientInfo));
+            
+        } else {
+            logDual("WARNING", QString("%1 - No se pudo obtener conexión pendiente").arg(clientInfo));
+        }
+    } catch (const std::exception& e) {
+        logDual("ERROR", QString("%1 - Error en onNewDataConnection: %2").arg(clientInfo).arg(e.what()));
+    } catch (...) {
+        logDual("ERROR", QString("%1 - Error desconocido en onNewDataConnection").arg(clientInfo));
+    }
 }
 
 void FtpClientHandler::onDataReadyRead()

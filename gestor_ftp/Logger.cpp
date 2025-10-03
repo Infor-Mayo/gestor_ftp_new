@@ -206,10 +206,8 @@ void Logger::debug(const QString& message, const QString& component) {
         writeToLogFile(formattedMessage, LogLevel::DEBUG);
         emit newLogMessage(formattedMessage, LogLevel::DEBUG);
         
-        if (logReceiver && m_consoleLoggingEnabled) {
-            QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                Qt::QueuedConnection, Q_ARG(QString, formattedMessage));
-        }
+        // Los logs se envían solo a través de newLogMessage
+        // La conexión en main.cpp maneja el envío a la interfaz
     }
 }
 
@@ -230,10 +228,8 @@ void Logger::info(const QString& message, const QString& component) {
         writeToLogFile(formattedMessage, LogLevel::INFO);
         emit newLogMessage(formattedMessage, LogLevel::INFO);
         
-        if (logReceiver && m_consoleLoggingEnabled) {
-            QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                Qt::QueuedConnection, Q_ARG(QString, formattedMessage));
-        }
+        // Los logs se envían solo a través de newLogMessage
+        // La conexión en main.cpp maneja el envío a la interfaz
     }
 }
 
@@ -254,10 +250,8 @@ void Logger::warning(const QString& message, const QString& component) {
         writeToLogFile(formattedMessage, LogLevel::WARNING);
         emit newLogMessage(formattedMessage, LogLevel::WARNING);
         
-        if (logReceiver && m_consoleLoggingEnabled) {
-            QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                Qt::QueuedConnection, Q_ARG(QString, formattedMessage));
-        }
+        // Los logs se envían solo a través de newLogMessage
+        // La conexión en main.cpp maneja el envío a la interfaz
     }
 }
 
@@ -278,10 +272,8 @@ void Logger::error(const QString& message, const QString& component) {
         writeToLogFile(formattedMessage, LogLevel::ERROR);
         emit newLogMessage(formattedMessage, LogLevel::ERROR);
         
-        if (logReceiver && m_consoleLoggingEnabled) {
-            QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                Qt::QueuedConnection, Q_ARG(QString, formattedMessage));
-        }
+        // Los logs se envían solo a través de newLogMessage
+        // La conexión en main.cpp maneja el envío a la interfaz
     }
 }
 
@@ -302,10 +294,8 @@ void Logger::critical(const QString& message, const QString& component) {
         writeToLogFile(formattedMessage, LogLevel::CRITICAL);
         emit newLogMessage(formattedMessage, LogLevel::CRITICAL);
         
-        if (logReceiver && m_consoleLoggingEnabled) {
-            QMetaObject::invokeMethod(logReceiver, "appendToTabConsole", 
-                Qt::QueuedConnection, Q_ARG(QString, formattedMessage));
-        }
+        // Los logs se envían solo a través de newLogMessage
+        // La conexión en main.cpp maneja el envío a la interfaz
     }
 }
 

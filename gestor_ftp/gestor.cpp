@@ -1607,18 +1607,37 @@ void gestor::showShortcutDialog()
 
 void gestor::loadSettings()
 {
-    QSettings settings("GestorFTP", "GestorFTP");
+    // CORRECCION: Usar el mismo sistema de configuración que el resto de la aplicación
+    QSettings settings("MiEmpresa", "GestorFTP");
     restoreGeometry(settings.value("MainWindow/geometry").toByteArray());
     restoreState(settings.value("MainWindow/state").toByteArray());
-    rootDir = settings.value("Server/rootDir", QDir::homePath()).toString();
+    
+    // Cargar directorio raíz desde la configuración
+    rootDir = settings.value("rootDir", QDir::homePath()).toString();
+    
+    // Log para debug
+    qInfo() << QString("Configuración cargada - Directorio raíz: %1").arg(rootDir);
+    
+    // Verificar que el directorio existe, si no usar el directorio home
+    QDir testDir(rootDir);
+    if (!testDir.exists()) {
+        qWarning() << QString("Directorio configurado no existe: %1, usando directorio home").arg(rootDir);
+        rootDir = QDir::homePath();
+        // Guardar la corrección
+        settings.setValue("rootDir", rootDir);
+    }
 }
 
 void gestor::saveSettings()
 {
-    QSettings settings("GestorFTP", "GestorFTP");
+    // CORRECCION: Usar el mismo sistema de configuración consistente
+    QSettings settings("MiEmpresa", "GestorFTP");
     settings.setValue("MainWindow/geometry", saveGeometry());
     settings.setValue("MainWindow/state", saveState());
-    settings.setValue("Server/rootDir", rootDir);
+    settings.setValue("rootDir", rootDir);
+    
+    // Log para debug
+    qInfo() << QString("Configuración guardada - Directorio raíz: %1").arg(rootDir);
 }
 
 void gestor::initializeDatabase()

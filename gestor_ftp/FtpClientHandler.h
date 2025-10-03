@@ -165,6 +165,8 @@ public:
     void handleType(const QString &type); // Nuevo manejador de comandos
     void handleCdup(); // Nuevo manejador de comandos
     void handleDele(const QString &fileName); // Nuevo manejador de comandos
+    void handleSyst(); // Comando SYST
+    void handleOpts(const QString &arg); // Comando OPTS
 
     // Async helpers
     void proceedWithList(const QString &arguments);
